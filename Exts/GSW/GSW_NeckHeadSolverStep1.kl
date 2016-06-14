@@ -1,0 +1,145 @@
+require InlineDrawing;
+require Geometry;
+
+object GSW_NeckHeadSolverStep1 : KrakenSolver {
+};
+
+
+// Return Arguments for Kraken
+function KrakenSolverArg[] GSW_NeckHeadSolverStep1.getArguments(){
+
+  KrakenSolverArg args[] = this.parent.getArguments();
+
+  args.push(KrakenSolverArg('upRate', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('downRate', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('rollRate', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('yawRate', 'In', 'Scalar'));
+
+  args.push(KrakenSolverArg('base', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('headDummy', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('lookAt', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('neck', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('head', 'Out', 'Mat44'));
+  return args;
+}
+
+
+// Solve
+function GSW_NeckHeadSolverStep1.solve!
+(
+  in Boolean drawDebug,
+  in Scalar rigScale,
+
+  in Scalar upRate,
+  in Scalar downRate,
+  in Scalar rollRate,
+  in Scalar yawRate,
+
+  in Mat44 base,
+  in Mat44 root,
+  in Mat44 headDummy,
+  in Mat44 lookAt,
+
+  out Mat44 neck,
+  out Mat44 head
+  )
+{
+
+  Xfo parentXfo = Xfo(root);
+  Xfo parentInverseXfo = root.inverse();
+
+  // --------------------------------------------------
+  // first step: solve look at
+  Vec3 toAtVector = lookAt.translation().subtract(headDummy.translation()).unit();
+  Vec3 toUpVector = root.translation().subtract(base.translation());
+
+  if (toUpVector.length() == 0) {
+    toUpVector = Vec3(0, 1, 0);
+  }
+
+  toUpVector = toUpVector.unit();
+
+  Vec3 localtoAtVector = parentInverseXfo.ori.rotateVector( toAtVector );
+  Vec3 localtoUpVector = parentInverseXfo.ori.rotateVector( toUpVector );
+
+  Quat xAlignOri;
+  xAlignOri.setFromAxisAndAngle(Vec3(1, 0, 0), Math_degToRad(-90));
+  Quat yAlignOri;
+  yAlignOri.setFromAxisAndAngle(Vec3(0, 1, 0), Math_degToRad(-90));
+  Quat zAlignOri;
+  zAlignOri.setFromAxisAndAngle(Vec3(0, 0, 1), Math_degToRad(-90));
+
+  Xfo headResultXfo;
+  headResultXfo.tr = parentInverseXfo.ori.rotateVector( headDummy.translation() - root.translation());
+  headResultXfo.ori.setFromDirectionAndUpvector( localtoAtVector, localtoUpVector );
+  headResultXfo.ori *= xAlignOri;
+  headResultXfo.ori *= yAlignOri;
+
+  head = headResultXfo.toMat44();
+
+  // --------------------------------------------------
+  // second step: solve neck auto corrector
+  // quaternion = (a, b, c, d)
+  // euler = (phi, theta, psi)
+  Quat dirQuat = headResultXfo.ori;
+
+  /*
+  Scalar a = dirQuat.v.x;
+  Scalar b = dirQuat.v.y;
+  Scalar c = dirQuat.v.z;
+  Scalar d = dirQuat.w;
+
+  Mat33 dcmMat = Mat33();
+  // dcmMat.row0.x = a*a + d*d - b*b - c*c;
+  // dcmMat.row0.y = 2 * (a*b - c*d);
+  // dcmMat.row0.z = 2 * (a*c + b*d);
+  dcmMat.row1.x = 2 * (a*b + c*d);
+  // dcmMat.row1.y = b*b + d*d - a*a - c*c;
+  // dcmMat.row1.z = 2 * (b*c - a*d );
+  dcmMat.row2.x = 2 * (a*c - b*d);
+  dcmMat.row2.y = 2 * (b*c + a*d);
+  // dcmMat.row2.z = c*c + d*d - a*a - b*b;
+
+  Scalar theta = asin( dcmMat.row2.x ) * -1;
+  Scalar phi = asin( (dcmMat.row1.x / cos( theta )));
+  Scalar psi = asin( (dcmMat.row2.y / cos( theta )));
+  */
+  Vec3   tmp   = dirQuat.toEulerAngles( RotationOrder('xzy') );
+  Scalar phi   = tmp.x;
+  Scalar theta = tmp.y;
+  Scalar psi   = tmp.z;
+
+  Scalar outX, outY, outZ;
+
+  // -------------------------------------------------//
+  // X: yaw
+  outX = phi * yawRate;
+
+  // Y: roll: solve in step 2
+  // outY = ( parentInverseXfo.ori * Xfo(roll).ori ).toEulerAngles( RotationOrder('zxy') ).y * rollRate;
+
+  // Z: pitch
+  if (psi > 0 ){
+    outZ = psi * upRate;
+  } else {
+    outZ = psi * downRate;
+  }
+
+  Xfo neckResultXfo = headResultXfo;
+  neckResultXfo.tr = Vec3();
+  neckResultXfo.ori.setFromEulerAngles( outX, outY, outZ, RotationOrder('xzy') );
+
+  neck = neckResultXfo.toMat44();
+
+  // -------------------------------------------------
+
+  // Set debugging visibility.
+  this.setDebug(this.drawDebug);
+  if(this.drawDebug){
+    if(!this.handle)
+      this.handle = DrawingHandle();
+
+  }
+}

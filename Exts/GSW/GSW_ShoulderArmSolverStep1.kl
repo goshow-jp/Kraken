@@ -1,0 +1,104 @@
+require Math;
+require InlineDrawing;
+require Kraken;
+
+
+object GswShoulderArmSolverStep1 : KrakenSolver {
+  Xfo initPose[];
+};
+
+// Default Constructor
+function GswShoulderArmSolverStep1()
+{
+
+}
+
+function GswShoulderArmSolverStep1(
+  Xfo initPose[])
+{
+  this.initPose = initPose;
+}
+
+
+// Return Arguments for Kraken
+function KrakenSolverArg[] GswShoulderArmSolverStep1.getArguments(){
+  KrakenSolverArg args[] = this.parent.getArguments();
+  args.push(KrakenSolverArg('rightSide', 'In', 'Boolean'));
+
+  args.push(KrakenSolverArg('ikblend', 'In', 'Scalar'));
+
+  args.push(KrakenSolverArg('refParentComp', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('bone0FK', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('ikHandle', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('upV', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('bone0Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('bone1Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('midJointOut', 'Out', 'Mat44'));
+  return args;
+}
+
+
+// Solve
+function GswShoulderArmSolverStep1.solve!
+(
+  Boolean drawDebug,
+  Scalar rigScale,
+  Boolean rightSide,
+
+  Scalar ikblend,
+
+  Mat44 refParentComp,
+  Mat44 root,
+  Mat44 bone0FK,
+  Mat44 ikHandle,
+  Mat44 upV,
+
+  Scalar bone0Len,
+  Scalar bone1Len,
+  io Mat44 midJointOut
+) {
+
+  Xfo bone0FkXfo = Xfo(bone0FK);
+  Xfo bone0Xfo = bone0FkXfo;
+  Xfo midJointXfo = Xfo();
+
+  Scalar scaledBone0Len = bone0Len * rigScale;
+  Scalar scaledBone1Len = bone1Len * rigScale;
+
+  if(ikblend > 0.0) {
+
+    solve2BoneIK(
+      scaledBone0Len,
+      scaledBone1Len,
+      root.translation(),
+      upV.translation(),
+      ikHandle.translation(),
+      bone0Xfo,
+      midJointXfo
+    );
+
+  }
+  bone0Xfo.ori = bone0FkXfo.ori.sphericalLinearInterpolate(bone0Xfo.ori, ikblend);
+  midJointXfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
+  midJointXfo.ori = midJointXfo.ori.sphericalLinearInterpolate(midJointXfo.ori, ikblend);
+
+  // Set Mid Joint Xfo
+  // midJointXfo.tr = bone1Xfo.tr;
+
+  midJointOut = midJointXfo.toMat44();
+
+  // Set debugging visibility.
+  /*
+  this.setDebug(drawDebug);
+  if(this.drawDebug){
+    if(!this.handle)
+      this.handle = DrawingHandle();
+    Color boneColor(1.0, 1.0, 0);
+    etDrawBone(this.handle.rootTransform, 'bone0', bone0Xfo, scaledBone0Len, scaledBone0Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'bone1', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'midJoint', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+  }
+  */
+}

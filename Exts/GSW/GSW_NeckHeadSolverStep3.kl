@@ -1,0 +1,48 @@
+require InlineDrawing;
+require Geometry;
+
+object GSW_NeckHeadSolverStep3 : KrakenSolver {
+};
+
+
+// Return Arguments for Kraken
+function KrakenSolverArg[] GSW_NeckHeadSolverStep3.getArguments(){
+
+  KrakenSolverArg args[] = this.parent.getArguments();
+
+  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('headDummy', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('head', 'Out', 'Mat44'));
+  return args;
+}
+
+
+// Solve
+function GSW_NeckHeadSolverStep3.solve!
+(
+  in Boolean drawDebug,
+  in Scalar rigScale,
+
+  in Mat44 root,
+  in Mat44 headDummy,
+
+  out Mat44 head
+  )
+{
+
+  Xfo parentInverseXfo = root.inverse();
+
+  Xfo headXfo = Xfo(headDummy);
+  head = (parentInverseXfo * headXfo).toMat44();
+
+  // -------------------------------------------------
+
+  // Set debugging visibility.
+  this.setDebug(this.drawDebug);
+  if(this.drawDebug){
+    if(!this.handle)
+      this.handle = DrawingHandle();
+
+  }
+}

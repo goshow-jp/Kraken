@@ -1,0 +1,132 @@
+require Math;
+require InlineDrawing;
+require Kraken;
+
+
+object GswShoulderArmSolverStep3 : KrakenSolver {
+  Xfo initPose[];
+};
+
+// Default Constructor
+function GswShoulderArmSolverStep3()
+{
+
+}
+
+function GswShoulderArmSolverStep3(
+  Xfo initPose[])
+{
+  this.initPose = initPose;
+}
+
+
+// Return Arguments for Kraken
+function KrakenSolverArg[] GswShoulderArmSolverStep3.getArguments(){
+  KrakenSolverArg args[] = this.parent.getArguments();
+  args.push(KrakenSolverArg('rightSide', 'In', 'Boolean'));
+
+  args.push(KrakenSolverArg('ikblend', 'In', 'Scalar'));
+
+  args.push(KrakenSolverArg('refParentComp', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('root1st', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('root2nd', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('bone0FK', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('bone1FK', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('ikHandle', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('upV', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('bone0Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('bone1Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('bone0Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('bone1Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('bone2Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('midJointOut', 'Out', 'Mat44'));
+  return args;
+}
+
+
+// Solve
+function GswShoulderArmSolverStep3.solve!
+(
+  Boolean drawDebug,
+  Scalar rigScale,
+  Boolean rightSide,
+
+  Scalar ikblend,
+
+  Mat44 refParentComp,
+  Mat44 root1st,
+  Mat44 root2nd,
+  Mat44 bone0FK,
+  Mat44 bone1FK,
+  Mat44 ikHandle,
+  Mat44 upV,
+
+  Scalar bone0Len,
+  Scalar bone1Len,
+  io Mat44 bone0Out,
+  io Mat44 bone1Out,
+  io Mat44 bone2Out,
+  io Mat44 midJointOut
+) {
+
+  Xfo bone0FkXfo = Xfo(bone0FK);
+  Xfo bone1FkXfo = Xfo(bone1FK);
+  Xfo bone0Xfo = bone0FkXfo;
+  Xfo bone1Xfo = bone1FkXfo;
+  Xfo bone2Xfo = bone1Xfo;
+  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+  Xfo midJointXfo = Xfo();
+
+  Scalar scaledBone0Len = bone0Len * rigScale;
+  Scalar scaledBone1Len = bone1Len * rigScale;
+
+  bone0Xfo.tr = root2nd.translation();
+  bone0Xfo.tr += (bone0FkXfo.tr - root1st.translation());
+
+  if(ikblend > 0.0) {
+    solve2BoneIK(
+      scaledBone0Len,
+      scaledBone1Len,
+      root2nd.translation(),
+      upV.translation(),
+      ikHandle.translation(),
+      bone0Xfo,
+      bone1Xfo
+    );
+    bone0Xfo.ori = bone0FkXfo.ori.sphericalLinearInterpolate(bone0Xfo.ori, ikblend);
+    bone1Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
+    bone1Xfo.ori = bone1FkXfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, ikblend);
+  }
+
+  // project bone2 to the end of bone 1
+  bone2Xfo = bone1Xfo;
+  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+
+  // Set Mid Joint Xfo
+  midJointXfo.tr = bone1Xfo.tr;
+  midJointXfo.ori = bone0Xfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, 0.5);
+
+  // Set scaling
+  Vec3 outScaling = Vec3(rigScale, rigScale, rigScale);
+  bone0Xfo.sc = outScaling;
+  bone1Xfo.sc = outScaling;
+  bone2Xfo.sc = outScaling;
+  midJointXfo.sc = outScaling;
+
+  bone0Out = bone0Xfo.toMat44();
+  bone1Out = bone1Xfo.toMat44();
+  bone2Out = bone2Xfo.toMat44();
+  midJointOut = midJointXfo.toMat44();
+
+  // Set debugging visibility.
+  this.setDebug(drawDebug);
+  if(this.drawDebug){
+    if(!this.handle)
+      this.handle = DrawingHandle();
+    Color boneColor(1.0, 1.0, 0);
+    etDrawBone(this.handle.rootTransform, 'bone0', bone0Xfo, scaledBone0Len, scaledBone0Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'bone1', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'midJoint', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+  }
+}

@@ -1,0 +1,69 @@
+require InlineDrawing;
+require Math;
+require Kraken;
+
+object GswBezierSpineSolver : BezierSpineSolver {
+  Quat GSW_BEZIER_SPINE_ALIGN_TIP_TO_DEF_QUAT;
+};
+
+function GswBezierSpineSolver() {
+  // this.drawDebug = this.defaults.drawDebug;
+  this.GSW_BEZIER_SPINE_ALIGN_TIP_TO_DEF_QUAT = Quat( Euler( 0.0f, 0.0f, Math_degToRad(90.0f) ) );
+}
+
+
+// Return Arguments for Kraken
+function KrakenSolverArg[] GswBezierSpineSolver.getArguments(){
+  KrakenSolverArg args[] = this.parent.parent.getArguments();
+  args.push(KrakenSolverArg('length', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('orientationLock', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('base', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('baseHandle', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('tipHandle', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('tip', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('outputs', 'Out', 'Mat44[]'));
+  return args;
+}
+
+// Solve
+function GswBezierSpineSolver.solve!
+(
+  Boolean  drawDebug,
+  Scalar   rigScale,
+  Scalar   length,
+  Scalar   orientationLock,
+  Mat44    base,
+  Mat44    baseHandle,
+  Mat44    tipHandle,
+  Mat44    tip,
+  io Mat44 outputs[]
+  )
+{
+
+  this.parent.solve( drawDebug, rigScale, length, base, baseHandle, tipHandle, tip, outputs );
+
+  // --------------------------------------------------------------------------
+  // solve orientationLock
+  Index last = outputs.size() - 1;
+  if ( orientationLock == 0.0f ){
+
+    // pass
+
+  } else if ( orientationLock == 1.0f ){
+
+    outputs[last].setRotation( Xfo(tip).ori.multiply( this.GSW_BEZIER_SPINE_ALIGN_TIP_TO_DEF_QUAT ) );
+
+  } else {
+
+    // blend
+    Xfo a = Xfo( outputs[last] );
+
+    Xfo z = Xfo( tip );
+    z.tr = a.tr;
+    z.ori = z.ori.multiply( this.GSW_BEZIER_SPINE_ALIGN_TIP_TO_DEF_QUAT );
+
+    outputs[last] = ( a.sphericalLinearInterpolate( z, orientationLock ) ).toMat44();
+
+  }
+
+}

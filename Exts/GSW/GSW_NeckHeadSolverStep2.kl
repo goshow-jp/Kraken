@@ -1,0 +1,62 @@
+require InlineDrawing;
+require Geometry;
+
+object GSW_NeckHeadSolverStep2 : KrakenSolver {
+};
+
+
+// Return Arguments for Kraken
+function KrakenSolverArg[] GSW_NeckHeadSolverStep2.getArguments(){
+
+  KrakenSolverArg args[] = this.parent.getArguments();
+
+  args.push(KrakenSolverArg('rollRate', 'In', 'Scalar'));
+
+  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('roll', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('neckDummy', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('neck', 'Out', 'Mat44'));
+  return args;
+}
+
+
+// Solve
+function GSW_NeckHeadSolverStep2.solve!
+(
+  in Boolean drawDebug,
+  in Scalar rigScale,
+
+  in Scalar rollRate,
+
+  in Mat44 root,
+  in Mat44 roll,
+  in Mat44 neckDummy,
+
+  out Mat44 neck
+  )
+{
+
+  Xfo parentInverseXfo = root.inverse();
+
+  Quat outQuat = Xfo(neckDummy).ori;
+  Quat tmp = parentInverseXfo.ori * Xfo(roll).ori;
+  Scalar tmp2 = ( tmp.toEulerAngles( RotationOrder('xzy') ).y ) * rollRate;
+  Quat tmp3 =  Quat();
+  tmp3.setFromEulerAngles( 0.0f, tmp2, 0.0f );
+  outQuat *= tmp3;
+
+  Xfo neckXfo = Xfo(neckDummy);
+  neckXfo.ori = outQuat;
+  neck = (parentInverseXfo * neckXfo).toMat44();
+
+  // -------------------------------------------------
+
+  // Set debugging visibility.
+  this.setDebug(this.drawDebug);
+  if(this.drawDebug){
+    if(!this.handle)
+      this.handle = DrawingHandle();
+
+  }
+}
