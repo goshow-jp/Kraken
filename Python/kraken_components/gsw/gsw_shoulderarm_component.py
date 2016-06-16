@@ -81,9 +81,9 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         self.forearmFKCtrlSizeInputAttr = ScalarAttribute('forearmFKCtrlSize', value=1.5, minValue=0.0, maxValue=10.0, parent=guideSettingsAttrGrp)
         self.modifierInputAttr = ScalarAttribute('modifier', value=1.0, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
         self.upRateInputAttr = ScalarAttribute('upRate', value=0.66, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
-        self.downRateInputAttr = ScalarAttribute('downRate', value=0.1, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
-        self.forwardRateInputAttr = ScalarAttribute('forwardRate', value=0.5, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
-        self.backwardRateInputAttr = ScalarAttribute('backwardRate', value=0.5, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
+        self.downRateInputAttr = ScalarAttribute('downRate', value=0.17, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
+        self.forwardRateInputAttr = ScalarAttribute('forwardRate', value=0.27, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
+        self.backwardRateInputAttr = ScalarAttribute('backwardRate', value=0.45, minValue=0.0, maxValue=1.0, parent=guideSettingsAttrGrp)
 
         # =========
         # Controls
@@ -239,13 +239,15 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
 
         # Calculate Clavicle Xfo
         rootToEnd = clavicleEndPosition.subtract(claviclePosition).unit()
+        if self.getLocation() == "R":
+            rotR = Quat(Euler(Math_degToRad(0), Math_degToRad(180), Math_degToRad(0)))
+            clavicleBladeXfo.ori *= rotR
+            rootToEnd = rotR.rotateVector(rootToEnd)
+            rootToEnd *= Vec3(1, -1, 1)
+
         # targetForward = clavicleBladeXfo.ori.rotateVector(Vec3(1, 0, 0))
         targetNormal = clavicleBladeXfo.ori.rotateVector(Vec3(0, 1, 0))
-
-        if self.getLocation() == "R":
-            targetUp = clavicleBladeXfo.ori.rotateVector(Vec3(0, 0, -1))
-        else:
-            targetUp = clavicleBladeXfo.ori.rotateVector(Vec3(0, 0, 1))
+        targetUp = clavicleBladeXfo.ori.rotateVector(Vec3(0, 0, 1))
 
         bone1Normal = targetNormal.unit()
         bone1ZAxis = targetUp.unit()
@@ -266,13 +268,15 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         # Calculate Bicep Xfo
         # rootToWrist = wristPosition.subtract(bicepPosition).unit()
         rootToElbow = forearmPosition.subtract(bicepPosition).unit()
+        if self.getLocation() == "R":
+            rotR = Quat(Euler(Math_degToRad(0), Math_degToRad(180), Math_degToRad(0)))
+            self.armBladeCtrl.xfo.ori *= rotR
+            rootToElbow = rotR.rotateVector(rootToElbow)
+            rootToElbow *= Vec3(1, -1, 1)
 
         # targetForward = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(1, 0, 0))
         targetNormal = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 1, 0))
-        if self.getLocation() == "R":
-            targetUp = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 0, -1))
-        else:
-            targetUp = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 0, 1))
+        targetUp = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 0, 1))
 
         bone1Normal = targetNormal.unit()
         bone1ZAxis = targetUp.unit()
@@ -282,10 +286,11 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
 
         # Calculate Forearm Xfo
         elbowToWrist = wristPosition.subtract(forearmPosition).unit()
-        # elbowToRoot = bicepPosition.subtract(forearmPosition).unit()
+        if self.getLocation() == "R":
+            rotR = Quat(Euler(Math_degToRad(0), Math_degToRad(180), Math_degToRad(0)))
+            elbowToWrist = rotR.rotateVector(elbowToWrist)
+            elbowToWrist *= Vec3(1, -1, 1)
 
-        # bone2Normal = elbowToRoot.cross(elbowToWrist).unit()
-        # bone2ZAxis = elbowToWrist.cross(bone2Normal).unit()
         forearmXfo = Xfo()
         forearmXfo.setFromVectors(elbowToWrist, bone1Normal, bone1ZAxis, forearmPosition)
 
@@ -298,6 +303,8 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         upVXfo.ori = self.armBladeCtrl.xfo.ori * Quat(Euler(Math_degToRad(180.0), 0.0, 0.0))
         upVXfo.tr = forearmPosition
         upVXfo.tr = upVXfo.transformVector(Vec3(0, 0, 5))
+        if self.getLocation() == "R":
+            upVXfo.tr *= Vec3(1, 1, -1)
 
         # Lengths
         bicepLen = bicepPosition.subtract(forearmPosition).length()
@@ -370,7 +377,7 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
 
         # Arm IK
         self.armIKCtrlSpace = CtrlSpace('IK', parent=self.ctrlCmpGrp)
-        self.armIKCtrl = Control('IK', parent=self.armIKCtrlSpace, shape="pin")
+        self.armIKCtrl = Control('IK', parent=self.armIKCtrlSpace, shape="jack")
 
         # Add Params to IK control
         armSettingsAttrGrp = AttributeGroup("DisplayInfo_ArmSettings", parent=self.armIKCtrl)
@@ -381,9 +388,9 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
 
         self.modifierInputAttr = ScalarAttribute('modifier', value=1.0, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
         self.upRateInputAttr = ScalarAttribute('upRate', value=0.66, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
-        self.downRateInputAttr = ScalarAttribute('downRate', value=0.1, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
-        self.forwardRateInputAttr = ScalarAttribute('forwardRate', value=0.5, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
-        self.backwardRateInputAttr = ScalarAttribute('backwardRate', value=0.5, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
+        self.downRateInputAttr = ScalarAttribute('downRate', value=0.17, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
+        self.forwardRateInputAttr = ScalarAttribute('forwardRate', value=0.27, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
+        self.backwardRateInputAttr = ScalarAttribute('backwardRate', value=0.45, minValue=0.0, maxValue=1.0, parent=armSettingsAttrGrp)
 
         # Util Objects
         self.ikRootPosition = Transform("ikPosition1st", parent=self.ctrlCmpGrp)
@@ -657,6 +664,7 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
 
         self.armIKCtrlSpace.xfo.tr = wristXfo.tr
         self.armIKCtrl.xfo.tr = wristXfo.tr
+        self.armIKCtrl.scalePoints(Vec3(3, 3, 3))
 
         if self.getLocation() == "R":
             self.armIKCtrl.rotatePoints(0, 90, 0)
