@@ -500,7 +500,6 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
         self.armSolverStep1KLOperator.setInput('refParentComp', self.spineEndInputTgt)
         self.armSolverStep1KLOperator.setInput('root', self.ikRootPosition)
         self.armSolverStep1KLOperator.setInput('bone0FK', self.bicepFKCtrl)
-        # self.armSolverStep1KLOperator.setInput('bone1FK', self.forearmFKCtrl)
         self.armSolverStep1KLOperator.setInput('ikHandle', self.armIKCtrl)
         self.armSolverStep1KLOperator.setInput('upV', self.armUpVCtrl)
 
