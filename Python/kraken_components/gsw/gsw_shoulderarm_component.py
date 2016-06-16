@@ -51,7 +51,6 @@ class GswShoulderArmComponent(BaseExampleComponent):
         self.elbowOutputTgt = self.createOutput('elbow', dataType='Xfo', parent=self.outputHrcGrp).getTarget()
         self.forearmOutputTgt = self.createOutput('forearm', dataType='Xfo', parent=self.outputHrcGrp).getTarget()
         self.wristOutputTgt = self.createOutput('wrist', dataType='Xfo', parent=self.outputHrcGrp).getTarget()
-        self.bladeOutputTgt = self.createOutput('blade',  dataType='Xfo', parent=self.outputHrcGrp).getTarget()
 
         # Declare Input Attrs
         self.drawDebugInputAttr = self.createInput('drawDebug', dataType='Boolean', value=False, parent=self.cmpInputAttrGrp).getTarget()
@@ -97,14 +96,12 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
 
         self.clavicleGuideSettingsAttrGrp = AttributeGroup("Settings", parent=self.clavicleCtrl)
         self.handDebugInputAttr = BoolAttribute('drawDebug', value=False, parent=self.clavicleGuideSettingsAttrGrp)
-
         self.drawDebugInputAttr.connect(self.handDebugInputAttr)
 
-        self.clavicleUpVCtrl = Control('clavicleUpV', parent=self.clavicleCtrl, shape="triangle")
-        self.clavicleUpVCtrl.setColor('red')
-        self.clavicleUpVCtrl.rotatePoints(-90.0, 0.0, 0.0)
-        self.clavicleUpVCtrl.rotatePoints(0.0, 90.0, 0.0)
-        self.clavicleUpVCtrl.scalePoints(Vec3(0.5, 0.5, 0.5))
+        self.clavicleBladeCtrl = Control('clavicleBlade', parent=self.clavicleCtrl)
+        self.clavicleBladeCtrl.setCurveData(icon.pointed_box)
+        self.clavicleBladeCtrl.setColor('red')
+        self.clavicleBladeCtrl.translatePoints(Vec3(0.5, 0.0, 0.5))
 
         self.clavicleEndCtrl = Control('clavicleEnd', parent=self.ctrlCmpGrp, shape="cube")
         self.clavicleEndCtrl.scalePoints(Vec3(0.25, 0.25, 0.25))
@@ -115,10 +112,10 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         self.forearmCtrl.setColor('blue')
         self.wristCtrl = Control('wrist', parent=self.ctrlCmpGrp, shape="sphere")
         self.wristCtrl.setColor('blue')
-        self.bladeCtrl = Control('blade', parent=self.bicepCtrl)
-        self.bladeCtrl.setCurveData(icon.pointed_box)
-        self.bladeCtrl.setColor('red')
-        self.bladeCtrl.translatePoints(Vec3(0.5, 0.0, 0.5))
+        self.armBladeCtrl = Control('armBlade', parent=self.bicepCtrl)
+        self.armBladeCtrl.setCurveData(icon.pointed_box)
+        self.armBladeCtrl.setColor('red')
+        self.armBladeCtrl.translatePoints(Vec3(0.5, 0.0, 0.5))
 
         armGuideSettingsAttrGrp = AttributeGroup("DisplayInfo_ArmSettings", parent=self.bicepCtrl)
         self.armGuideDebugAttr = BoolAttribute('drawDebug', value=True, parent=armGuideSettingsAttrGrp)
@@ -145,8 +142,8 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
             "name": name,
             "location": "L",
             "clavicleXfo": Xfo(Vec3(0.227, 13.45, -0.4)),
-            "clavicleUpVXfo": Xfo(Vec3(0.227, 14.45, -0.4)),
             "clavicleEndXfo": Xfo(Vec3(1.75, 13.5, -0.43)),
+            "clavicleBladeXfo": Xfo(Vec3(0.227, 13.45, -0.4)),
             "bicepXfo": Xfo(Vec3(1.758, 13.57, -0.432)),
             "forearmXfo": Xfo(Vec3(4.177, 13.512, -0.511)),
             "wristXfo": Xfo(Vec3(6.56, 13.58, -0.438)),
@@ -178,13 +175,17 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         data = super(GswShoulderArmComponentGuide, self).saveData()
 
         data['clavicleXfo'] = self.clavicleCtrl.xfo
-        data['clavicleUpVXfo'] = self.clavicleUpVCtrl.xfo
+        data['clavicleBladeXfo'] = self.clavicleBladeCtrl.xfo
         data['clavicleEndXfo'] = self.clavicleEndCtrl.xfo
 
         data['bicepXfo'] = self.bicepCtrl.xfo
         data['forearmXfo'] = self.forearmCtrl.xfo
         data['wristXfo'] = self.wristCtrl.xfo
-        data['bladeXfo'] = self.bladeCtrl.xfo
+        data['bladeXfo'] = self.armBladeCtrl.xfo
+
+        if self.getLocation() == "R":
+            data['clavicleBladeXfo'] *= Quat(Euler(Math_degToRad(180), 0,  0))
+            data['bladeXfo'] *= Quat(Euler(Math_degToRad(180), 0,  0))
 
         return data
 
@@ -202,13 +203,17 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         super(GswShoulderArmComponentGuide, self).loadData(data)
 
         self.clavicleCtrl.xfo = data['clavicleXfo']
-        self.clavicleUpVCtrl.xfo = data['clavicleUpVXfo']
+        self.clavicleBladeCtrl.xfo = data['clavicleBladeXfo']
         self.clavicleEndCtrl.xfo = data['clavicleEndXfo']
 
         self.bicepCtrl.xfo = data['bicepXfo']
         self.forearmCtrl.xfo = data['forearmXfo']
         self.wristCtrl.xfo = data['wristXfo']
-        self.bladeCtrl.xfo = data['bladeXfo']
+        self.armBladeCtrl.xfo = data['bladeXfo']
+
+        if self.getLocation() == "R":
+            self.clavicleBladeCtrl.xfo.ori *= Quat(Euler(Math_degToRad(180), 0,  0))
+            self.armBladeCtrl.xfo *= Quat(Euler(Math_degToRad(180), 0,  0))
 
         guideOpName = ''.join([self.getName().split('GuideKLOp')[0],
                                self.getLocation(),
@@ -229,14 +234,21 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
 
         # Values
         claviclePosition = self.clavicleCtrl.xfo.tr
-        clavicleUpV = self.clavicleUpVCtrl.xfo.tr
+        clavicleBladeXfo = self.clavicleBladeCtrl.xfo
         clavicleEndPosition = self.clavicleEndCtrl.xfo.tr
 
         # Calculate Clavicle Xfo
         rootToEnd = clavicleEndPosition.subtract(claviclePosition).unit()
-        rootToUpV = clavicleUpV.subtract(claviclePosition).unit()
-        bone1ZAxis = rootToUpV.cross(rootToEnd).unit()
-        bone1Normal = bone1ZAxis.cross(rootToEnd).unit()
+        # targetForward = clavicleBladeXfo.ori.rotateVector(Vec3(1, 0, 0))
+        targetNormal = clavicleBladeXfo.ori.rotateVector(Vec3(0, 1, 0))
+
+        if self.getLocation() == "R":
+            targetUp = clavicleBladeXfo.ori.rotateVector(Vec3(0, 0, -1))
+        else:
+            targetUp = clavicleBladeXfo.ori.rotateVector(Vec3(0, 0, 1))
+
+        bone1Normal = targetNormal.unit()
+        bone1ZAxis = targetUp.unit()
 
         clavicleXfo = Xfo()
         clavicleXfo.setFromVectors(rootToEnd, bone1Normal, bone1ZAxis, claviclePosition)
@@ -252,12 +264,15 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         wristPosition = self.wristCtrl.xfo.tr
 
         # Calculate Bicep Xfo
-        rootToWrist = wristPosition.subtract(bicepPosition).unit()
+        # rootToWrist = wristPosition.subtract(bicepPosition).unit()
         rootToElbow = forearmPosition.subtract(bicepPosition).unit()
 
-        targetForward = self.bladeCtrl.xfo.ori.rotateVector(Vec3(1, 0, 0))
-        targetNormal = self.bladeCtrl.xfo.ori.rotateVector(Vec3(0, 1, 0))
-        targetUp = self.bladeCtrl.xfo.ori.rotateVector(Vec3(0, 0, 1))
+        # targetForward = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(1, 0, 0))
+        targetNormal = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 1, 0))
+        if self.getLocation() == "R":
+            targetUp = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 0, -1))
+        else:
+            targetUp = self.armBladeCtrl.xfo.ori.rotateVector(Vec3(0, 0, 1))
 
         bone1Normal = targetNormal.unit()
         bone1ZAxis = targetUp.unit()
@@ -267,7 +282,7 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
 
         # Calculate Forearm Xfo
         elbowToWrist = wristPosition.subtract(forearmPosition).unit()
-        elbowToRoot = bicepPosition.subtract(forearmPosition).unit()
+        # elbowToRoot = bicepPosition.subtract(forearmPosition).unit()
 
         # bone2Normal = elbowToRoot.cross(elbowToWrist).unit()
         # bone2ZAxis = elbowToWrist.cross(bone2Normal).unit()
@@ -280,7 +295,7 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         wristXfo.ori = forearmXfo.ori
 
         upVXfo = xfoFromDirAndUpV(bicepPosition, wristPosition, forearmPosition)
-        upVXfo.ori = self.bladeCtrl.xfo.ori * Quat(Euler(Math_degToRad(180.0), 0.0, 0.0))
+        upVXfo.ori = self.armBladeCtrl.xfo.ori * Quat(Euler(Math_degToRad(180.0), 0.0, 0.0))
         upVXfo.tr = forearmPosition
         upVXfo.tr = upVXfo.transformVector(Vec3(0, 0, 5))
 
@@ -418,11 +433,6 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
         # Constrain I/O
         # ==============
         # Constraint inputs
-        # self.clavicleInputConstraint = PoseConstraint('_'.join([self.clavicleCtrl.getName(), 'To', self.spineEndInputTgt.getName()]))
-        # self.clavicleInputConstraint.setMaintainOffset(True)
-        # self.clavicleInputConstraint.addConstrainer(self.spineEndInputTgt)
-        # self.clavicleCtrlSpace.addConstraint(self.clavicleInputConstraint)
-
         self.armIKCtrlSpaceInputConstraint = PoseConstraint('_'.join([self.armIKCtrlSpace.getName(), 'To', self.globalSRTInputTgt.getName()]))
         self.armIKCtrlSpaceInputConstraint.setMaintainOffset(True)
         self.armIKCtrlSpaceInputConstraint.addConstrainer(self.globalSRTInputTgt)
@@ -514,8 +524,7 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
         self.armSolverStep2KLOperator.setInput('backwardRate', self.backwardRateInputAttr)
 
         # Add Xfo Inputs
-        self.armSolverStep2KLOperator.setInput('refParentComp', self.spineEndInputTgt)
-        self.armSolverStep2KLOperator.setInput('root', self.clavicleRefPosition)
+        self.armSolverStep2KLOperator.setInput('clavicleRoot', self.clavicleRefPosition)
         self.armSolverStep2KLOperator.setInput('elbowRefPosition', self.ikRootPosition)
         self.armSolverStep2KLOperator.setInput('elbow1stPosition', self.elbow1stPosition)
 
@@ -595,6 +604,7 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
 
         super(GswShoulderArmComponentRig, self).loadData(data)
 
+        self.rightSideInputAttr.setValue(self.getLocation() is 'R')
         clavicleXfo = data.get('clavicleXfo')
         clavicleLen = data.get('clavicleLen')
 
@@ -617,7 +627,6 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
         self.clavicleOutputTgt.xfo = clavicleXfo
 
         # Eval Constraints
-        # self.clavicleInputConstraint.evaluate()
         self.elbowRefPosInputConstraint.evaluate()
         self.clavicleConstraint.evaluate()
         self.clavicleEndConstraint.evaluate()
@@ -652,13 +661,15 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
 
         if self.getLocation() == "R":
             self.armIKCtrl.rotatePoints(0, 90, 0)
+            self.clavicleCtrl.scalePoints(Vec3(-1, 1, 1))
+            self.bicepFKCtrl.scalePoints(Vec3(-1, 1, 1))
+            self.forearmFKCtrl.scalePoints(Vec3(-1, 1, 1))
         else:
             self.armIKCtrl.rotatePoints(0, -90, 0)
 
         self.armUpVCtrlSpace.xfo.tr = upVXfo.tr
         self.armUpVCtrl.xfo.tr = upVXfo.tr
 
-        self.rightSideInputAttr.setValue(self.getLocation() is 'R')
         self.armBone0LenInputAttr.setMin(0.0)
         self.armBone0LenInputAttr.setMax(bicepLen * 3.0)
         self.armBone0LenInputAttr.setValue(bicepLen)

@@ -34,8 +34,7 @@ function KrakenSolverArg[] GswShoulderArmSolverStep2.getArguments(){
   args.push(KrakenSolverArg('forwardRate', 'In', 'Scalar'));
   args.push(KrakenSolverArg('backwardRate', 'In', 'Scalar'));
 
-  args.push(KrakenSolverArg('refParentComp', 'In', 'Mat44'));
-  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('clavicleRoot', 'In', 'Mat44'));
   args.push(KrakenSolverArg('elbowRefPosition', 'In', 'Mat44'));
   args.push(KrakenSolverArg('elbow1stPosition', 'In', 'Mat44'));
 
@@ -58,15 +57,14 @@ function GswShoulderArmSolverStep2.solve!
   in Scalar forwardRate,
   in Scalar backwardRate,
 
-  in Mat44 refParentComp,
-  in Mat44 root,
+  in Mat44 clavicleRoot,
   in Mat44 elbowRefPosition,
   in Mat44 elbow1stPosition,
 
   out Mat44 clavicleOut 
 ) {
 
-  Xfo rootXfo = Xfo(root);
+  Xfo rootXfo = Xfo(clavicleRoot);
   Xfo outXfo = Xfo();
   outXfo.tr = rootXfo.tr;
 
@@ -79,14 +77,18 @@ function GswShoulderArmSolverStep2.solve!
 
   }
 
+  if (rightSide) {
+    Quat inverseRotX();
+    inverseRotX.setFromEulerAngles( 0, 0, Math_degToRad(180) );
+    // rootXfo.ori = rootXfo.ori * inverseRotX;
+    rootXfo.ori = inverseRotX * rootXfo.ori;
+  }
+
   Xfo elbowRefXfo = Xfo(elbowRefPosition);
   Xfo elbow1stXfo = Xfo(elbow1stPosition);
 
   Vec3 tmp = ( elbow1stXfo.tr - elbowRefXfo.tr ) / bone0Len;
-
-  tmp = rootXfo.inverse().ori.rotateVector( tmp );
-  tmp.y *= -1;
-  tmp.z *= -1;
+  tmp = rootXfo.ori.rotateVector( tmp );
 
   // normalize
   // x: range( -1.0 to 1.0 ) default 1.0
@@ -177,7 +179,7 @@ function GswShoulderArmSolverStep2.solve!
 
   Quat corretionQuat();
   corretionQuat.setFromEulerAngles( 0, outRotVec.z, outRotVec.x, RotationOrder('yzx') );
-  corretionQuat *= rootXfo.ori;
+  corretionQuat = rootXfo.inverse().ori * corretionQuat;
   outXfo.ori = corretionQuat;
   clavicleOut = outXfo.toMat44();
 }
