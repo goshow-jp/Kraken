@@ -48,22 +48,23 @@ function KrakenSolverArg[] GswShoulderArmSolverStep3.getArguments(){
 // Solve
 function GswShoulderArmSolverStep3.solve!
 (
-  Boolean drawDebug,
-  Scalar rigScale,
-  Boolean rightSide,
+  in Boolean drawDebug,
+  in Scalar rigScale,
+  in Boolean rightSide,
 
-  Scalar ikblend,
+  in Scalar ikblend,
 
-  Mat44 refParentComp,
-  Mat44 root1st,
-  Mat44 root2nd,
-  Mat44 bone0FK,
-  Mat44 bone1FK,
-  Mat44 ikHandle,
-  Mat44 upV,
+  in Mat44 refParentComp,
+  in Mat44 root1st,
+  in Mat44 root2nd,
+  in Mat44 bone0FK,
+  in Mat44 bone1FK,
+  in Mat44 ikHandle,
+  in Mat44 upV,
 
-  Scalar bone0Len,
-  Scalar bone1Len,
+  in Scalar bone0Len,
+  in Scalar bone1Len,
+
   io Mat44 bone0Out,
   io Mat44 bone1Out,
   io Mat44 bone2Out,
@@ -72,6 +73,7 @@ function GswShoulderArmSolverStep3.solve!
 
   Xfo bone0FkXfo = Xfo(bone0FK);
   Xfo bone1FkXfo = Xfo(bone1FK);
+
   Xfo bone0Xfo = bone0FkXfo;
   Xfo bone1Xfo = bone1FkXfo;
   Xfo bone2Xfo = bone1Xfo;
@@ -85,6 +87,7 @@ function GswShoulderArmSolverStep3.solve!
   bone0Xfo.tr += (bone0FkXfo.tr - root1st.translation());
 
   if(ikblend > 0.0) {
+
     solve2BoneIK(
       scaledBone0Len,
       scaledBone1Len,
@@ -94,14 +97,30 @@ function GswShoulderArmSolverStep3.solve!
       bone0Xfo,
       bone1Xfo
     );
+
+    if (rightSide) {
+      bone0Xfo.ori *= Quat(Euler(0, Math_degToRad(180), 0));
+      bone1Xfo.ori *= Quat(Euler(0, Math_degToRad(180), 0));
+    }
+
     bone0Xfo.ori = bone0FkXfo.ori.sphericalLinearInterpolate(bone0Xfo.ori, ikblend);
-    bone1Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
     bone1Xfo.ori = bone1FkXfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, ikblend);
+
+  }
+
+  if (rightSide) {
+    bone1Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len * -1, 0.0, 0.0));
+  } else {
+    bone1Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
   }
 
   // project bone2 to the end of bone 1
   bone2Xfo = bone1Xfo;
-  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+  if (rightSide) {
+    bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len * -1, 0.0, 0.0));
+  } else {
+    bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+  }
 
   // Set Mid Joint Xfo
   midJointXfo.tr = bone1Xfo.tr;

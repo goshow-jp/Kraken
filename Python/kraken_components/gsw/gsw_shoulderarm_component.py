@@ -629,7 +629,11 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
         # Set IO Xfos
         self.spineEndInputTgt.xfo = clavicleXfo
         self.clavicleEndOutputTgt.xfo = clavicleXfo
-        self.clavicleEndOutputTgt.xfo.tr = clavicleXfo.transformVector(Vec3(clavicleLen, 0.0, 0.0))
+        if data['location'] == "R":
+            self.clavicleEndOutputTgt.xfo.tr = clavicleXfo.transformVector(Vec3(clavicleLen * -1, 0.0, 0.0))
+        else:
+            self.clavicleEndOutputTgt.xfo.tr = clavicleXfo.transformVector(Vec3(clavicleLen, 0.0, 0.0))
+
         self.clavicleOutputTgt.xfo = clavicleXfo
 
         # Eval Constraints

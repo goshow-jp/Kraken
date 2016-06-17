@@ -90,25 +90,17 @@ function GswShoulderArmSolverStep2.solve!
   tmp = rootXfo.inverse().ori.rotateVector( tmp );
 
   // normalize
-  // x: range( -1.0 to 1.0 ) default 1.0
+  // x: range( -1.0 to 1.0 ) default 1.0  // 
   // y: range( -1.0 to 1.0 ) default 0.0
-  // z: range( -1.0 to 1.0 ) default 0.0
+  // z: range( -1.0 to 1.0 ) default 0.0  // forward/backward
   tmp.x = tmp.x.clamp( -1.0f, 1.0f );
   tmp.y = tmp.y.clamp( -1.0f, 1.0f );
   tmp.z = tmp.z.clamp( -1.0f, 1.0f );
   Vec3 tmp2 = Vec3(tmp);
 
-  if ( rightSide ){
-    tmp.x = acos( tmp.x ) - ( PI / 2 );
-    tmp.y = asin( tmp.y );
-    tmp.z = asin( tmp.z ) * -1;
-
-  } else {
-    tmp.x = acos( tmp.x ) - ( PI / 2 );
-    tmp.y = asin( tmp.y );
-    tmp.z = asin( tmp.z ) * -1;
-
-  }
+  tmp.x = acos( tmp.x ) - ( PI / 2 );
+  tmp.y = asin( tmp.y );
+  tmp.z = asin( tmp.z ) * -1;
 
   if (0 < tmp.x) {
     /*
@@ -166,12 +158,18 @@ function GswShoulderArmSolverStep2.solve!
 
   }
 
-  if (tmp.z < 0) {
-    outRotVec.z = forwardRate  * tmp.z;
-
-  } else {                             
-    outRotVec.z = backwardRate * tmp.z;
-
+  if (rightSide) {
+    if (tmp.z < 0) {
+      outRotVec.z = backwardRate * tmp.z;
+    } else {                             
+      outRotVec.z = forwardRate  * tmp.z;
+    }
+  } else {
+    if (tmp.z < 0) {
+      outRotVec.z = forwardRate  * tmp.z;
+    } else {                             
+      outRotVec.z = backwardRate * tmp.z;
+    }
   }
 
   outXfo.tr = rootXfo.tr;
@@ -179,6 +177,11 @@ function GswShoulderArmSolverStep2.solve!
   Quat corretionQuat();
   corretionQuat.setFromEulerAngles( 0, outRotVec.z, outRotVec.x, RotationOrder('yzx') );
   corretionQuat = rootXfo.ori * corretionQuat;
+
+  if (rightSide) {
+    corretionQuat *= Quat(Euler(Math_degToRad(180), Math_degToRad(180), 0));
+  }
+
   outXfo.ori = corretionQuat;
   clavicleOut = outXfo.toMat44();
 }

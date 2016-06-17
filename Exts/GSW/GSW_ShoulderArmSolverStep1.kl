@@ -43,20 +43,20 @@ function KrakenSolverArg[] GswShoulderArmSolverStep1.getArguments(){
 // Solve
 function GswShoulderArmSolverStep1.solve!
 (
-  Boolean drawDebug,
-  Scalar rigScale,
-  Boolean rightSide,
+  in Boolean drawDebug,
+  in Scalar rigScale,
+  in Boolean rightSide,
 
-  Scalar ikblend,
+  in Scalar ikblend,
 
-  Mat44 refParentComp,
-  Mat44 root,
-  Mat44 bone0FK,
-  Mat44 ikHandle,
-  Mat44 upV,
+  in Mat44 refParentComp,
+  in Mat44 root,
+  in Mat44 bone0FK,
+  in Mat44 ikHandle,
+  in Mat44 upV,
 
-  Scalar bone0Len,
-  Scalar bone1Len,
+  in Scalar bone0Len,
+  in Scalar bone1Len,
   io Mat44 midJointOut
 ) {
 
@@ -79,13 +79,23 @@ function GswShoulderArmSolverStep1.solve!
       midJointXfo
     );
 
+  } else {
+
+    bone0Xfo = Xfo(root);
+
   }
+
+  if (rightSide) {
+    bone0FkXfo.ori *= Quat(Euler(0, Math_degToRad(180), 0));
+  }
+
   bone0Xfo.ori = bone0FkXfo.ori.sphericalLinearInterpolate(bone0Xfo.ori, ikblend);
   midJointXfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
   midJointXfo.ori = midJointXfo.ori.sphericalLinearInterpolate(midJointXfo.ori, ikblend);
 
-  // Set Mid Joint Xfo
-  // midJointXfo.tr = bone1Xfo.tr;
+  if (rightSide) {
+    midJointXfo.ori *= Quat(Euler(0, Math_degToRad(180), 0));
+  }
 
   midJointOut = midJointXfo.toMat44();
 
