@@ -194,9 +194,10 @@ class GswMainComponentRig(GswMainComponent):
         self.localCtrlSpace = self.localCtrl.insertCtrlSpace()
 
         # COG
-        self.cogCtrl = Control('cog', parent=self.localCtrl, shape="square")
+        self.cogCtrl = Control('cog', parent=self.localCtrl)
+        self.cogCtrl.setCurveData(icon.home_plate)
         self.cogCtrl.ro = RotationOrder(rotationOrderStrToIntMapping["ZXY"])  # Set with component settings later
-        self.cogCtrl.scalePoints(Vec3(10.0, 10.0, 5.0))
+        self.cogCtrl.scalePoints(Vec3(8.0, 8.0, 5.5))
         self.cogCtrl.setColor("orange")
         self.cogCtrlSpace = self.cogCtrl.insertCtrlSpace()
 
