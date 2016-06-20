@@ -610,7 +610,7 @@ class GswShoulderArmComponentRig(GswShoulderArmComponent):
 
         super(GswShoulderArmComponentRig, self).loadData(data)
 
-        self.rightSideInputAttr.setValue(self.getLocation() is 'R')
+        self.rightSideInputAttr.setValue(self.getLocation() == 'R')
         clavicleXfo = data.get('clavicleXfo')
         clavicleLen = data.get('clavicleLen')
 
