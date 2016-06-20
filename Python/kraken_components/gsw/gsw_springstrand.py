@@ -1,7 +1,6 @@
 import math
-import copy
 
-from kraken.core.maths import Vec3
+from kraken.core.maths import Vec3, Quat, Euler, Math_degToRad
 from kraken.core.maths.xfo import Xfo
 
 from kraken.core.objects.components.base_example_component import BaseExampleComponent
@@ -29,6 +28,7 @@ from kraken.core.objects.operators.kl_operator import KLOperator
 from kraken.core.profiler import Profiler
 from kraken.helpers.utility_methods import logHierarchy
 
+import kraken_components.gsw.gsw_icon as icon
 
 
 class GswSpringStrandComponent(BaseExampleComponent):
@@ -112,13 +112,13 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
 
         self.jointCtrls    = []
         self.strandOutputs = []
+
         if data is None:
             data = self._makeDafaultData()
 
         self.loadData(data)
 
         Profiler.getInstance().pop()
-
 
     # =============================================================================================
     # Data Methods
@@ -141,7 +141,6 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
 
         return data
 
-
     def loadData(self, data):
         """Load a saved guide representation from persisted data.
 
@@ -159,7 +158,6 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
             self.jointCtrls[i].xfo.tr = data['jointPositions'][i]
 
         return True
-
 
     def getRigBuildData(self):
         """Returns the Guide data used by the Rig Component to define the layout of the final rig..
@@ -213,7 +211,6 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
 
             data['strands'].append(strand)
 
-
         for i in xrange(self.numStrands.getValue()):
             _each(i)
 
@@ -236,14 +233,14 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
         if numStrands == 0:
             raise IndexError("'numStrands' must be > 0")
 
-        name = self._getCtrlName  #shortcut
+        name = self._getCtrlName  # shortcut
         numJoints = self.numJoints.getValue()
-        old  = len(self.jointCtrls) // (numJoints + 1)
+        old = len(self.jointCtrls) // (numJoints + 1)
         if numStrands > old:
             # append new strand(s)
             for strandId in xrange(old, numStrands):
                 for i in xrange(numJoints + 1):
-                    n = name(strandId, i)
+                    # n = name(strandId, i)
 
                     newCtrl = Control(name(strandId, i), parent=self.ctrlCmpGrp, shape="sphere")
                     self.jointCtrls.append(newCtrl)
@@ -316,7 +313,6 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
                 extraOutput = self.strandOutputs.pop(id)
                 self.outputHrcGrp.removeChild(extraOutput)
 
-
         # Reset the control positions based on new number of joints
         jointPositions = self.generateGuidePositions(numStrands, numJoints)
         for i, ctrl in enumerate(self.jointCtrls):
@@ -366,6 +362,7 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
         return "col{}row{}".format(str(x + 1).zfill(2), str(y + 1).zfill(2))
 
     def _makeDafaultData(self):
+
         self.jointCtrls    = []
         self.strandOutputs = []
 
@@ -417,7 +414,8 @@ class GswSpringStrandComponentGuide(GswSpringStrandComponent):
 
 
 class GswSpringStrandComponentRig(GswSpringStrandComponent):
-    """Insect Leg Rig"""
+
+    """Spring Strand Rig"""
 
     def __init__(self, name='SpringStrand', parent=None):
 
@@ -506,9 +504,6 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
         setSolverInput  = lambda name, attr: self.strandSolverKLOp.setInput(name, attr)
         setSolverOutput = lambda name, attr: self.strandSolverKLOp.setOutput(name, attr)
 
-        print self.strandSolverKLOp.getSolverArgs()
-        print self.strandSolverKLOp.inputs
-
         # # Add Att Inputs
         setSolverInput('drawDebug',    self.drawDebugInputAttr)
         setSolverInput('rigScale',     self.rigScaleInputAttr)
@@ -516,7 +511,6 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
         setSolverInput('tipBoneLen',   self.tipBoneLenInputAttr)
 
         # Add Xfo Inputs
-        setSolverInput('chainBase',    self.chainBase)
         setSolverInput('ikgoal',       self.ikCtrl)
         setSolverInput('fkcontrols',   self.fkCtrls)
 
@@ -540,6 +534,8 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
 
         # Add Xfo Outputs
         setDeformerOutput('constrainees', self.deformerJoints)
+
+        self.strandSolverKLOp.evaluate()
 
         Profiler.getInstance().pop()
 
@@ -574,6 +570,10 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
         self.ikCtrlSpace[strandId].addConstraint(cons)
 
     def setNumControls(self, strandId, numControls):
+        """
+            strandId: strand(row) number
+            numControls: number of controls on a strand
+        """
 
         # Add new control spaces and controls
         if strandId >= len(self.fkCtrlSpaces):
@@ -588,10 +588,14 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
             boneName = self._getFKBoneName(strandId, i)
             fkCtrlSpace = CtrlSpace(boneName, parent=parent)
 
-            fkCtrl = Control(boneName, parent=fkCtrlSpace, shape="cube")
+            fkCtrl = Control(boneName, parent=fkCtrlSpace)
+            fkCtrl.setCurveData(icon.cube_with_peek2)
             fkCtrl.alignOnXAxis()
             fkCtrl.lockScale(x=True, y=True, z=True)
             fkCtrl.lockTranslation(x=True, y=True, z=True)
+
+            # bColor = 0.5 * ((i + 1.0) / numControls)
+            # fkCtrl.setColor([1.0, 1.0, bColor])
 
             self.fkCtrlSpaces[strandId].append(fkCtrlSpace)
             self.fkCtrls.append(fkCtrl)
@@ -658,10 +662,12 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
 
         ##################################################################
         # Add or mod chainbase
+        '''
         if strandId >= len(self.chainBase):
             base = Locator(self._getChainBaseName(strandId), parent=self.ctrlCmpGrp)
             self.chainBase.append(base)
         self.chainBase[strandId].xfo = boneXfos[0]
+        '''
 
         # Add extra controls and outputs
         self.setNumControls(strandId, numJoints)
@@ -671,8 +677,10 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
         # Scale controls based on bone lengths
         for i, each in enumerate(self.fkCtrlSpaces[strandId]):
             self.fkCtrlSpaces[strandId][i].xfo = boneXfos[i]
+            boneScale = Vec3(boneLengths[i] * 0.90, boneLengths[i] * 0.05, boneLengths[i] * 0.35)
             self.fkCtrls[strandId * numJoints + i].xfo = boneXfos[i]
-            self.fkCtrls[strandId * numJoints + i].scalePoints(Vec3(Vec3(boneLengths[i], boneLengths[i] * 0.45, boneLengths[i] * 0.45)))
+            self.fkCtrls[strandId * numJoints + i].rotatePoints(0, 0, -90)
+            self.fkCtrls[strandId * numJoints + i].scalePoints(boneScale)
 
         ##################################################################
         # Add or mod IK
