@@ -183,9 +183,9 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         data['wristXfo'] = self.wristCtrl.xfo
         data['bladeXfo'] = self.armBladeCtrl.xfo
 
-        if self.getLocation() == "R":
-            data['clavicleBladeXfo'] *= Quat(Euler(Math_degToRad(180), 0,  0))
-            data['bladeXfo'] *= Quat(Euler(Math_degToRad(180), 0,  0))
+        # if self.getLocation() == "R":
+        #     data['clavicleBladeXfo'] *= Quat(Euler(Math_degToRad(180), 0,  0))
+        #     data['bladeXfo'] *= Quat(Euler(Math_degToRad(180), 0,  0))
 
         return data
 
@@ -211,9 +211,9 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         self.wristCtrl.xfo = data['wristXfo']
         self.armBladeCtrl.xfo = data['bladeXfo']
 
-        if self.getLocation() == "R":
-            self.clavicleBladeCtrl.xfo.ori *= Quat(Euler(Math_degToRad(180), 0,  0))
-            self.armBladeCtrl.xfo *= Quat(Euler(Math_degToRad(180), 0,  0))
+        # if self.getLocation() == "R":
+        #     self.clavicleBladeCtrl.xfo.ori *= Quat(Euler(Math_degToRad(180), 0,  0))
+        #     self.armBladeCtrl.xfo *= Quat(Euler(Math_degToRad(180), 0,  0))
 
         guideOpName = ''.join([self.getName().split('GuideKLOp')[0],
                                self.getLocation(),
@@ -302,9 +302,11 @@ class GswShoulderArmComponentGuide(GswShoulderArmComponent):
         upVXfo = xfoFromDirAndUpV(bicepPosition, wristPosition, forearmPosition)
         upVXfo.ori = self.armBladeCtrl.xfo.ori * Quat(Euler(Math_degToRad(180.0), 0.0, 0.0))
         upVXfo.tr = forearmPosition
-        upVXfo.tr = upVXfo.transformVector(Vec3(0, 0, 5))
         if self.getLocation() == "R":
-            upVXfo.tr *= Vec3(1, 1, -1)
+            upVOffsetZ = -5
+        else:
+            upVOffsetZ = 5
+        upVXfo.tr = upVXfo.transformVector(Vec3(0, 0, upVOffsetZ))
 
         # Lengths
         bicepLen = bicepPosition.subtract(forearmPosition).length()
