@@ -5,12 +5,14 @@ from kraken.core.objects.components.base_example_component import BaseExampleCom
 from kraken.core.objects.attributes.attribute_group import AttributeGroup
 from kraken.core.objects.attributes.bool_attribute import BoolAttribute
 from kraken.core.objects.attributes.scalar_attribute import ScalarAttribute
+from kraken.core.objects.attributes.integer_attribute import IntegerAttribute
 
 from kraken.core.objects.joint import Joint
 from kraken.core.objects.transform import Transform
 from kraken.core.objects.control import Control
 from kraken.core.objects.ctrlSpace import CtrlSpace
 from kraken.core.objects.component_group import ComponentGroup
+# from kraken.core.objects.components.component_output import ComponentOutput
 
 from kraken.core.objects.operators.kl_operator import KLOperator
 
@@ -42,11 +44,6 @@ class GswNeckHeadComponent(BaseExampleComponent):
         self.drawDebugInputAttr = self.createInput('drawDebug', dataType='Boolean', value=False, parent=self.cmpInputAttrGrp).getTarget()
         self.rigScaleInputAttr = self.createInput('rigScale', dataType='Float', value=1.0, parent=self.cmpInputAttrGrp).getTarget()
 
-        self.neckUpRateInputAttr = self.createInput('neckUpRate', dataType='Float', value=0.6, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
-        self.neckDownRateInputAttr = self.createInput('neckDownRate', dataType='Float', value=0.33, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
-        self.neckRollRateInputAttr = self.createInput('neckRollRate', dataType='Float', value=0.45, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
-        self.neckYawRateInputAttr = self.createInput('neckYawRate', dataType='Float', value=0.6, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
-
         # Declare Output Attrs
 
 
@@ -63,6 +60,12 @@ class GswNeckHeadComponentGuide(GswNeckHeadComponent):
         # Controls
         # =========
         guideSettingsAttrGrp = AttributeGroup("GuideSettings", parent=self)
+
+        # neck split
+        self.neckCtrlCountAttr = IntegerAttribute('neckControls', value=1, minValue=1, maxValue=10, parent=guideSettingsAttrGrp)
+        self.neckCtrlCountAttr.setValueChangeCallback(self.updateCevicalCtrls)
+
+        # auto correction ratio attrs
         self.hasEyeLookAtAttr = BoolAttribute('eyeLookAt', value=False, parent=guideSettingsAttrGrp)
         self.neckUpRateAttr = ScalarAttribute('neckUpRate', value=0.6, minValue=-10, maxValue=10, parent=guideSettingsAttrGrp)
         self.neckDownRateAttr = ScalarAttribute('neckDownRate', value=0.33, minValue=-10, maxValue=10, parent=guideSettingsAttrGrp)
@@ -87,6 +90,10 @@ class GswNeckHeadComponentGuide(GswNeckHeadComponent):
         self.headCtrlShape.rotatePoints(90.0, 0.0, 0.0)
         self.headCtrlShape.rotatePoints(0.0, 90.0, 0.0)
         self.headCtrlShape.setColor('orange')
+
+        self.cevicalCtrls = []
+        self.cevicalPositions = []
+        self.cevicalCtrlShapes = []
 
         # Guide Operator
         self.neckGuideKLOp = KLOperator(name + 'GuideKLOp', 'GSW_NeckHeadGuideSolver', 'GSW_Kraken')
@@ -127,7 +134,8 @@ class GswNeckHeadComponentGuide(GswNeckHeadComponent):
             "neckUpRate": 0.6,
             "neckDownRate": 0.33,
             "neckRollRate": 0.45,
-            "neckYawRate": 0.6
+            "neckYawRate": 0.6,
+            "cevicalPositions": []
         }
 
         self.loadData(self.default_data)
@@ -155,11 +163,19 @@ class GswNeckHeadComponentGuide(GswNeckHeadComponent):
         data['neckCrvData'] = self.neckCtrlShape.getCurveData()
         data['headCrvData'] = self.headCtrlShape.getCurveData()
 
+        data['neckControls'] = self.neckCtrlCountAttr.getValue()
+
         data['hasEyeLookAt'] = self.hasEyeLookAtAttr.getValue()
         data['neckUpRate'] = self.neckUpRateAttr.getValue()
         data['neckDownRate'] = self.neckDownRateAttr.getValue()
         data['neckRollRate'] = self.neckRollRateAttr.getValue()
         data['neckYawRate'] = self.neckYawRateAttr.getValue()
+
+        self.cevicalPositions = []
+        for i in xrange(len(self.cevicalCtrls)):
+            self.cevicalPositions.append(self.cevicalCtrls[i].xfo.tr)
+
+        data['cevicalPositions'] = self.cevicalPositions
 
         return data
 
@@ -184,11 +200,14 @@ class GswNeckHeadComponentGuide(GswNeckHeadComponent):
         self.neckCtrlShape.setCurveData(data.get('neckCrvData'))
         self.headCtrlShape.setCurveData(data.get('headCrvData'))
 
+        self.neckCtrlCountAttr.setValue(data.get('neckControls', 1))
         self.hasEyeLookAtAttr.setValue(data.get('hasEyeLookAt', False))
         self.neckUpRateAttr.setValue(data.get('neckUpRate'))
         self.neckDownRateAttr.setValue(data.get('neckDownRate'))
         self.neckRollRateAttr.setValue(data.get('neckRollRate'))
         self.neckYawRateAttr.setValue(data.get('neckYawRate'))
+
+        self.cevicalPositions = data.get('cevicalPositions', [])
 
         # Evaluate guide operators
         self.neckGuideKLOp.evaluate()
@@ -210,13 +229,71 @@ class GswNeckHeadComponentGuide(GswNeckHeadComponent):
         data['headXfo'] = self.headCtrlShape.xfo
         data['upvXfo'] = self.upvCtrl.xfo
         data['lookAtXfo'] = self.lookAtCtrl.xfo
+        data['neckControls'] = self.neckCtrlCountAttr.getValue()
         data['hasEyeLookAt'] = self.hasEyeLookAtAttr.getValue()
         data['neckUpRate'] = self.neckUpRateAttr.getValue()
         data['neckDownRate'] = self.neckDownRateAttr.getValue()
         data['neckRollRate'] = self.neckRollRateAttr.getValue()
         data['neckYawRate'] = self.neckYawRateAttr.getValue()
 
+        cevicalXfos = []
+        for s in self.cevicalCtrlShapes:
+            cevicalXfos.append(s.xfo)
+        data['cevicalXfos'] = cevicalXfos
+
         return data
+
+    def updateCevicalCtrls(self, num):
+
+        if not self.cevicalCtrls:
+            self.cevicalCtrls = []
+
+        currentCount = len(self.cevicalCtrls)
+        if currentCount < num - 1:
+            # append ctrls
+            for i in xrange(num - 1 - currentCount):
+                name = 'cevical' + str(i).zfill(2)
+                newCtrl = Control(name, parent=self.ctrlCmpGrp, shape="sphere")
+                newCtrl.scalePoints(Vec3(0.5, 0.5, 0.5))
+                newCtrl.setColor('blue')
+                newCtrl.xfo.tr = self.calculateCevicalPosition(i, num)
+                self.cevicalPositions.append(newCtrl.xfo.tr)
+                self.cevicalCtrls.append(newCtrl)
+
+                newShape = Control(name, parent=self.ctrlCmpGrp, shape="pin")
+                newShape.setColor('orange')
+                newShape.rotatePoints(90.0, 0.0, 0.0)
+                newShape.rotatePoints(0.0, 90.0, 0.0)
+                newShape.xfo = newCtrl.xfo
+                self.cevicalCtrlShapes.append(newShape)
+
+        elif num - 1 < currentCount:
+            # remove ctrls
+            for i in xrange(currentCount - num + 1):
+                extraCtrl = self.cevicalCtrls.pop()
+                self.ctrlCmpGrp.removeChild(extraCtrl)
+
+                extraShape = self.cevicalCtrlShapes.pop()
+                self.ctrlCmpGrp.removeChild(extraShape)
+
+        # update guide op
+        src = [self.neckCtrl, self.headCtrl, self.upvCtrl, self.lookAtCtrl]
+        dst = [self.neckCtrlShape, self.headCtrlShape]
+        src[1:1] = self.cevicalCtrls
+        dst[1:1] = self.cevicalCtrlShapes
+
+        self.neckGuideKLOp.setInput('sources', src)
+        self.neckGuideKLOp.setOutput('targets', dst)
+
+    def calculateCevicalPosition(self, n, total):
+        neck = self.neckCtrl.xfo.tr
+        head = self.headCtrl.xfo.tr
+
+        x = (head - neck).x * (float(n + 1) / float(total))
+        y = (head - neck).y * (float(n + 1) / float(total))
+        z = (head - neck).z * (float(n + 1) / float(total))
+
+        return Vec3(x, y, z) + neck
 
     # ==============
     # Class Methods
@@ -254,6 +331,11 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
 
         Profiler.getInstance().push("Construct Neck Rig Component:" + name)
         super(GswNeckHeadComponentRig, self).__init__(name, parent)
+
+        self.neckUpRateInputAttr = self.createInput('neckUpRate', dataType='Float', value=0.6, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
+        self.neckDownRateInputAttr = self.createInput('neckDownRate', dataType='Float', value=0.33, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
+        self.neckRollRateInputAttr = self.createInput('neckRollRate', dataType='Float', value=0.45, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
+        self.neckYawRateInputAttr = self.createInput('neckYawRate', dataType='Float', value=0.6, minValue=-10.0, maxValue=10.0, parent=self.cmpInputAttrGrp).getTarget()
 
         # =========
         # Controls
@@ -344,26 +426,6 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         # Add Target Outputs
         self.neckSolverStep1KLOp.setOutput('neck', self.neckCtrlSpaceDummy)
         self.neckSolverStep1KLOp.setOutput('head', self.headCtrlSpaceDummy)
-
-        self.neckSolverStep2KLOp = KLOperator('neckSolverStep2KLOp',
-                                              'GSW_NeckHeadSolverStep2',
-                                              'GSW_Kraken')
-        self.addOperator(self.neckSolverStep2KLOp)
-
-        # Add Att Inputs
-        self.neckSolverStep2KLOp.setInput('drawDebug', self.drawDebugInputAttr)
-        self.neckSolverStep2KLOp.setInput('rigScale', self.rigScaleInputAttr)
-
-        # Add Source Attrs
-        self.neckSolverStep2KLOp.setInput('rollRate', self.neckRollRateInputAttr)
-
-        # Add Source Inputs
-        self.neckSolverStep2KLOp.setInput('root', self.rootSpace)
-        self.neckSolverStep2KLOp.setInput('roll', self.headRollCtrl)
-        self.neckSolverStep2KLOp.setInput('neckDummy', self.neckCtrlSpaceDummy)
-
-        # Add Target Outputs
-        self.neckSolverStep2KLOp.setOutput('neck', self.neckCtrlSpace)
 
         self.neckSolverStep3KLOp = KLOperator('neckSolverStep3KLOp',
                                               'GSW_NeckHeadSolverStep3',
@@ -501,6 +563,8 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.neckCtrlSpaceDummy.setVisibility(False)
         self.headCtrlSpaceDummy.setVisibility(False)
 
+        self.updateCevicals(data.get('cevicalXfos'), headLength=headLength)
+
         # ============
         # Set IO Xfos
         # ============
@@ -516,8 +580,76 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.headOutCnstr.evaluate()
         self.headOutCnstr2.evaluate()
 
-        # self.neckSolverStep1KLOp.evaluate()
-        # self.neckSolverStep2KLOp.evaluate()
+        self.neckSolverStep1KLOp.evaluate()
+        self.neckSolverStep2KLOp.evaluate()
+        self.neckSolverStep3KLOp.evaluate()
+
+    def updateCevicals(self, cevicalXfos, headLength=1.0):
+
+        if not cevicalXfos:
+            return
+
+        self.cevicalCtrls = []
+        self.cevicalCtrlSpaces = []
+        self.cevicalDefs = []
+
+        for i, x in enumerate(cevicalXfos):
+
+            name = 'cevical' + str(i).zfill(2)
+            if i == 0:
+                parent = self.neckCtrl
+            else:
+                parent = self.cevicalCtrls[i - 1]
+
+            ctrlSpace = CtrlSpace(name=name, parent=parent)
+            ctrlSpace.xfo = x
+
+            ctrl = Control(name, parent=ctrlSpace, shape="pin")
+            ctrl.rotatePoints(90, 0, -90)
+            ctrl.scalePoints(Vec3(headLength * 0.8, headLength * 0.88, headLength * 0.88))
+            ctrl.xfo = x
+            ctrl.setColor("orange")
+
+            deformer = Joint(name + 'def', parent=self.defCmpGrp)
+            deformer.setComponent(self)
+
+            self.cevicalCtrlSpaces.append(ctrlSpace)
+            self.cevicalCtrls.append(ctrl)
+            self.cevicalDefs.append(deformer)
+
+        self.cevicalCtrls[-1].addChild(self.headOutDummy)
+
+        # update deformer op i/o put
+        deformerSrc = [self.neckCtrl, self.headOutDummy]
+        deformerDst = [self.neckDef, self.headDef]
+        deformerSrc[1:1] = self.cevicalCtrls
+        deformerDst[1:1] = self.cevicalDefs
+        self.neckDeformerKLOp.setInput('constrainers', deformerSrc)
+        self.neckDeformerKLOp.setOutput('constrainees', deformerDst)
+
+        self.neckSolverStep2KLOp = KLOperator('neckSolverStep2KLOp',
+                                              'GSW_NeckHeadSolverStep2',
+                                              'GSW_Kraken')
+        self.addOperator(self.neckSolverStep2KLOp)
+
+        # Add Att Inputs
+        self.neckSolverStep2KLOp.setInput('drawDebug', self.drawDebugInputAttr)
+        self.neckSolverStep2KLOp.setInput('rigScale', self.rigScaleInputAttr)
+
+        # Add Source Attrs
+        self.neckSolverStep2KLOp.setInput('rollRate', self.neckRollRateInputAttr)
+
+        # Add Source Inputs
+        self.neckSolverStep2KLOp.setInput('root', self.rootSpace)
+        self.neckSolverStep2KLOp.setInput('roll', self.headRollCtrl)
+        self.neckSolverStep2KLOp.setInput('neckDummy', self.neckCtrlSpaceDummy)
+
+        # Add Target Outputs
+        # self.neckSolverStep2KLOp.setOutput('neckCtrlSpaces', [self.neckCtrlSpace])
+
+        ctrlSpaces = [self.neckCtrlSpace]
+        ctrlSpaces[1:1] = self.cevicalCtrlSpaces
+        self.neckSolverStep2KLOp.setOutput('neckCtrlSpaces', ctrlSpaces)
 
 
 from kraken.core.kraken_system import KrakenSystem

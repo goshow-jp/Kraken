@@ -16,7 +16,7 @@ function KrakenSolverArg[] GSW_NeckHeadSolverStep2.getArguments(){
   args.push(KrakenSolverArg('roll', 'In', 'Mat44'));
   args.push(KrakenSolverArg('neckDummy', 'In', 'Mat44'));
 
-  args.push(KrakenSolverArg('neck', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('neckCtrlSpaces', 'Out', 'Mat44[]'));
   return args;
 }
 
@@ -33,7 +33,7 @@ function GSW_NeckHeadSolverStep2.solve!
   in Mat44 roll,
   in Mat44 neckDummy,
 
-  out Mat44 neck
+  out Mat44[] neckCtrlSpaces
   )
 {
 
@@ -48,7 +48,10 @@ function GSW_NeckHeadSolverStep2.solve!
 
   Xfo neckXfo = Xfo(neckDummy);
   neckXfo.ori = outQuat;
-  neck = (parentInverseXfo * neckXfo).toMat44();
+  // neckCtrlSpaces[0] = (parentInverseXfo * neckXfo).toMat44();
+  // for ( Index i=0; i < neckCtrlSpaces.size(); i++ ){
+  //   neckCtrlSpaces[i] = (parentInverseXfo * neckXfo).toMat44();
+  // }
 
   // -------------------------------------------------
 
