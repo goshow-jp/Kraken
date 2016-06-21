@@ -48,10 +48,10 @@ function GSW_NeckHeadSolverStep2.solve!
 
   Xfo neckXfo = Xfo(neckDummy);
   neckXfo.ori = outQuat;
-  // neckCtrlSpaces[0] = (parentInverseXfo * neckXfo).toMat44();
-  // for ( Index i=0; i < neckCtrlSpaces.size(); i++ ){
-  //   neckCtrlSpaces[i] = (parentInverseXfo * neckXfo).toMat44();
-  // }
+  neckCtrlSpaces[0] = (parentInverseXfo * neckXfo).toMat44();
+  //for ( Index i=0; i < neckCtrlSpaces.size(); i++ ){
+  //  neckCtrlSpaces[i] = (parentInverseXfo * neckXfo).toMat44();
+  //}
 
   // -------------------------------------------------
 
