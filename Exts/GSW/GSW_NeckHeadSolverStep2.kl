@@ -15,8 +15,11 @@ function KrakenSolverArg[] GSW_NeckHeadSolverStep2.getArguments(){
   args.push(KrakenSolverArg('root', 'In', 'Mat44'));
   args.push(KrakenSolverArg('roll', 'In', 'Mat44'));
   args.push(KrakenSolverArg('neckDummy', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('cervicalRoot', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('cervicalRefs', 'In', 'Mat44[]'));
 
-  args.push(KrakenSolverArg('neckCtrlSpaces', 'Out', 'Mat44[]'));
+  args.push(KrakenSolverArg('neckCtrlSpace', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('cervicalCtrlSpaces', 'Out', 'Mat44[]'));
   return args;
 }
 
@@ -32,26 +35,45 @@ function GSW_NeckHeadSolverStep2.solve!
   in Mat44 root,
   in Mat44 roll,
   in Mat44 neckDummy,
+  in Mat44 cervicalRoot,
+  in Mat44[] cervicalRefs,
 
-  out Mat44[] neckCtrlSpaces
+  out Mat44 neckCtrlSpace,
+  out Mat44[] cervicalCtrlSpaces,
   )
 {
 
   Xfo parentInverseXfo = root.inverse();
+  Xfo neckDummyXfo = Xfo(neckDummy);
 
-  Quat outQuat = Xfo(neckDummy).ori;
+  Quat outQuat = neckDummyXfo.ori;
   Quat tmp = parentInverseXfo.ori * Xfo(roll).ori;
   Scalar tmp2 = ( tmp.toEulerAngles( RotationOrder('xzy') ).y ) * rollRate;
   Quat tmp3 =  Quat();
   tmp3.setFromEulerAngles( 0.0f, tmp2, 0.0f );
   outQuat *= tmp3;
 
-  Xfo neckXfo = Xfo(neckDummy);
+  // neck base phase
+  Xfo neckXfo = Xfo(neckDummyXfo);
   neckXfo.ori = outQuat;
-  neckCtrlSpaces[0] = (parentInverseXfo * neckXfo).toMat44();
-  //for ( Index i=0; i < neckCtrlSpaces.size(); i++ ){
-  //  neckCtrlSpaces[i] = (parentInverseXfo * neckXfo).toMat44();
-  //}
+  neckCtrlSpace = (parentInverseXfo * neckXfo).toMat44();
+
+  // cervical phase
+  for ( Index i=0; i < cervicalCtrlSpaces.size(); i++ ){
+
+    Xfo x();
+    // if ( i == cervicalCtrlSpaces.size() - 1 ) {
+    if ( i == 0 ) {
+        x = Xfo(cervicalRoot.inverse() * cervicalRefs[i]);
+        x.ori = Xfo(parentInverseXfo * Xfo(outQuat)).ori;
+        
+    } else {
+        x = Xfo(cervicalRefs[i - 1].inverse() * cervicalRefs[i]);
+        x.ori = Xfo(parentInverseXfo * Xfo(outQuat)).ori;
+    }
+    // report( i + ":   " + Scalar(i + 1) / cervicalCtrlSpaces.size() );
+    cervicalCtrlSpaces[i] = x.toMat44();
+  }
 
   // -------------------------------------------------
 

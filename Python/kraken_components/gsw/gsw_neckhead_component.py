@@ -363,6 +363,9 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
 
         self.lookAtCtrlSpace = self.lookAtCtrl.insertCtrlSpace(name='lookAt')
 
+        # cervical
+        self.cervicalRootSpace = CtrlSpace('cervicalRoot', parent=self.rootSpace)
+
         # ==========
         # Deformers
         # ==========
@@ -445,7 +448,10 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.neckSolverStep2KLOp.setInput('neckDummy', self.neckCtrlSpaceDummy)
 
         # Add Target Outputs
-        self.neckSolverStep2KLOp.setOutput('neckCtrlSpaces', [self.neckCtrlSpace])
+        self.neckSolverStep2KLOp.setOutput('neckCtrlSpace', self.neckCtrlSpace)
+        self.neckSolverStep2KLOp.setOutput('cervicalCtrlSpaces', [])
+        self.neckSolverStep2KLOp.setInput('cervicalRoot', self.cervicalRootSpace)
+        self.neckSolverStep2KLOp.setInput('cervicalRefs', [])
 
         self.neckSolverStep3KLOp = KLOperator('neckSolverStep3KLOp',
                                               'GSW_NeckHeadSolverStep3',
@@ -549,11 +555,13 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.rootSpace.xfo = rootXfo
 
         self.neckCtrlSpace.xfo = neckXfo
+        self.neckCtrlSpaceDummy.xfo = neckXfo
         self.neckCtrl.xfo = neckXfo
         self.neckCtrl.rotatePoints(90, 0, -90)
         self.neckCtrl.scalePoints(Vec3(headLength, headLength, headLength))
 
         self.headCtrlSpace.xfo = headXfo
+        self.headCtrlSpaceDummy.xfo = headXfo
         self.headRollCtrl.xfo = headXfo
         self.headRollCtrl.scalePoints(Vec3(headLength * 1.0, headLength * 0.7, headLength * 1.0))
         self.headRollCtrl.rotatePoints(-90, 0, -90)
@@ -583,13 +591,15 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.neckCtrlSpaceDummy.setVisibility(False)
         self.headCtrlSpaceDummy.setVisibility(False)
 
+        self.cervicalRootSpace.xfo = rootXfo
+
         self.updateCervicals(data.get('cervicalXfos'), headLength=headLength)
 
         # ============
         # Set IO Xfos
         # ============
-        self.neckBaseInputTgt.xfo = neckXfo
-        self.cogInputTgt.xfo = neckXfo
+        # self.neckBaseInputTgt.xfo = neckXfo
+        # self.cogInputTgt.xfo = neckXfo
         self.neckOutputTgt.xfo = neckXfo
         self.headOutputTgt.xfo = headXfo
 
@@ -600,9 +610,9 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.headOutCnstr.evaluate()
         self.headOutCnstr2.evaluate()
 
-        self.neckSolverStep1KLOp.evaluate()
-        self.neckSolverStep2KLOp.evaluate()
-        self.neckSolverStep3KLOp.evaluate()
+        # self.neckSolverStep1KLOp.evaluate()
+        # self.neckSolverStep2KLOp.evaluate()
+        # self.neckSolverStep3KLOp.evaluate()
 
     def updateCervicals(self, cervicalXfos, headLength=1.0):
 
@@ -612,17 +622,29 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.cervicalCtrls = []
         self.cervicalCtrlSpaces = []
         self.cervicalDefs = []
+        self.cervicalDummys = []
+        self.cervicalBoneLenInputAttrs = []
 
         for i, x in enumerate(cervicalXfos):
 
             name = 'cervical' + str(i).zfill(2)
             if i == 0:
-                parent = self.neckCtrl
+                parent = self.cervicalRootSpace
+                dummyParent = self.cervicalRootSpace
             else:
                 parent = self.cervicalCtrls[i - 1]
+                dummyParent = self.cervicalDummys[i - 1]
+
+                # bone length attribute
+                boneLen = (cervicalXfos[i].tr - cervicalXfos[i - 1].tr).length()
+                lenAttrName = 'cervicalBone{}LenInputAttr'.format(str(i - 1).zfill(2))
+                lenAttrValue = ScalarAttribute(lenAttrName, value=boneLen, parent=self.cmpInputAttrGrp)
+                setattr(self, lenAttrName, lenAttrValue)
+                self.cervicalBoneLenInputAttrs.append(lenAttrValue)
 
             ctrlSpace = CtrlSpace(name=name, parent=parent)
             ctrlSpace.xfo = x
+            ctrlSpace.xfo.ori = self.cervicalRootSpace.xfo.ori
 
             ctrl = Control(name, parent=ctrlSpace, shape="pin")
             ctrl.rotatePoints(90, 0, -90)
@@ -633,9 +655,13 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
             deformer = Joint(name + 'def', parent=self.defCmpGrp)
             deformer.setComponent(self)
 
+            dummy = Transform(name=name + 'dummy', parent=dummyParent)
+            dummy.xfo = x
+
             self.cervicalCtrlSpaces.append(ctrlSpace)
             self.cervicalCtrls.append(ctrl)
             self.cervicalDefs.append(deformer)
+            self.cervicalDummys.append(dummy)
 
         self.cervicalCtrls[-1].addChild(self.headOutDummy)
 
@@ -647,9 +673,8 @@ class GswNeckHeadComponentRig(GswNeckHeadComponent):
         self.neckDeformerKLOp.setInput('constrainers', deformerSrc)
         self.neckDeformerKLOp.setOutput('constrainees', deformerDst)
 
-        ctrlSpaces = [self.neckCtrlSpace]
-        ctrlSpaces[1:1] = self.cervicalCtrlSpaces
-        # self.neckSolverStep2KLOp.setOutput('neckCtrlSpaces', ctrlSpaces)
+        self.neckSolverStep2KLOp.setOutput('cervicalCtrlSpaces', self.cervicalCtrlSpaces)
+        self.neckSolverStep2KLOp.setInput('cervicalRefs', self.cervicalDummys)
 
 
 from kraken.core.kraken_system import KrakenSystem
