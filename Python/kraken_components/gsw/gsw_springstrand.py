@@ -535,8 +535,6 @@ class GswSpringStrandComponentRig(GswSpringStrandComponent):
         # Add Xfo Outputs
         setDeformerOutput('constrainees', self.deformerJoints)
 
-        self.strandSolverKLOp.evaluate()
-
         Profiler.getInstance().pop()
 
     def addFKCtrl(self, strandId):
