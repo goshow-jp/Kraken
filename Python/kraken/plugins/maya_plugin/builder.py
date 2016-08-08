@@ -11,6 +11,7 @@ import logging
 from kraken.log import getLogger
 
 from kraken.core.kraken_system import ks
+from kraken.core.configs.config import Config
 
 from kraken.core.maths import Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
 
@@ -766,12 +767,13 @@ class Builder(Builder):
     # =========================
     # Operator Builder Methods
     # =========================
-    def buildKLOperator(self, kOperator):
+    def buildKLOperator(self, kOperator, buildName):
         """Builds KL Operators on the components.
 
         Args:
             kOperator (Object): Kraken operator that represents a KL
                 operator.
+            buildName (str): The name to use on the built object.
 
         Return:
             bool: True if successful.
@@ -781,16 +783,17 @@ class Builder(Builder):
         # Code to build KL and Canvas based Operators has been merged.
         # It's important to note here that the 'isKLBased' argument is set
         # to true.
-        self.buildCanvasOperator(kOperator, isKLBased=True)
+        self.buildCanvasOperator(kOperator, buildName, isKLBased=True)
 
         return True
 
-    def buildCanvasOperator(self, kOperator, isKLBased=False):
+    def buildCanvasOperator(self, kOperator, buildName, isKLBased=False):
         """Builds Canvas Operators on the components.
 
         Args:
             kOperator (object): Kraken operator that represents a Canvas
                 operator.
+            buildName (str): The name to use on the built object.
             isKLBased (bool): Whether the solver is based on a KL object.
 
         Return:
@@ -835,25 +838,30 @@ class Builder(Builder):
                 }
 
             # Create Canvas Operator
-            canvasNode = pm.createNode('canvasNode', name=kOperator.getName())
+            canvasNode = pm.createNode('canvasNode', name=buildName)
             self._registerSceneItemPair(kOperator, pm.PyNode(canvasNode))
 
+            config = Config.getInstance()
+            nameTemplate = config.getNameTemplate()
+            typeTokens = nameTemplate['types']
+            opTypeToken = typeTokens.get(type(kOperator).__name__, 'op')
+            solverNodeName = '_'.join([kOperator.getName(), opTypeToken])
 
             if isKLBased is True:
 
                 pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
-                                      execPath="",
-                                      extDep=kOperator.getExtension())
+                                          execPath="",
+                                          extDep=kOperator.getExtension())
 
                 solverTypeName = kOperator.getSolverTypeName()
 
                 pm.FabricCanvasAddFunc(mayaNode=canvasNode,
                                        execPath="",
-                                       title=kOperator.getName(),
+                                       title=solverNodeName,
                                        code="dfgEntry {}", xPos="100", yPos="100")
 
                 pm.FabricCanvasAddPort(mayaNode=canvasNode,
-                                       execPath=kOperator.getName(),
+                                       execPath=solverNodeName,
                                        desiredPortName="solver",
                                        portType="IO",
                                        typeSpec=solverTypeName,
@@ -871,11 +879,11 @@ class Builder(Builder):
                 pm.FabricCanvasConnect(mayaNode=canvasNode,
                                        execPath="",
                                        srcPortPath="solver",
-                                       dstPortPath=kOperator.getName() + ".solver")
+                                       dstPortPath=solverNodeName + ".solver")
 
                 pm.FabricCanvasConnect(mayaNode=canvasNode,
                                        execPath="",
-                                       srcPortPath=kOperator.getName() + ".solver",
+                                       srcPortPath=solverNodeName + ".solver",
                                        dstPortPath="solver")
             else:
                 pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
@@ -895,7 +903,6 @@ class Builder(Builder):
             else:
                 portCount = node.getExecPortCount()
 
-            arraySizes = {}
             for i in xrange(portCount):
 
                 if isKLBased is True:
@@ -913,14 +920,14 @@ class Builder(Builder):
                 if portConnectionType == 'In':
                     if isKLBased is True:
                         pm.FabricCanvasAddPort(mayaNode=canvasNode,
-                                           execPath="",
-                                           desiredPortName=portName,
-                                           portType="In",
-                                           typeSpec=portDataType,
-                                           connectToPortPath="")
+                                               execPath="",
+                                               desiredPortName=portName,
+                                               portType="In",
+                                               typeSpec=portDataType,
+                                               connectToPortPath="")
 
                         pm.FabricCanvasAddPort(mayaNode=canvasNode,
-                                               execPath=kOperator.getName(),
+                                               execPath=solverNodeName,
                                                desiredPortName=portName,
                                                portType="In",
                                                typeSpec=portDataType,
@@ -929,7 +936,7 @@ class Builder(Builder):
                         pm.FabricCanvasConnect(mayaNode=canvasNode,
                                                execPath="",
                                                srcPortPath=portName,
-                                               dstPortPath=kOperator.getName() + "." + portName)
+                                               dstPortPath=solverNodeName + "." + portName)
 
                     else:
                         if portDataType != 'Execute':
@@ -959,7 +966,7 @@ class Builder(Builder):
 
                         pm.FabricCanvasAddPort(
                             mayaNode=canvasNode,
-                            execPath=kOperator.getName(),
+                            execPath=solverNodeName,
                             desiredPortName=portName,
                             portType="Out",
                             typeSpec=portDataType,
@@ -968,7 +975,7 @@ class Builder(Builder):
                         pm.FabricCanvasConnect(
                             mayaNode=canvasNode,
                             execPath="",
-                            srcPortPath=kOperator.getName() + "." + portName,
+                            srcPortPath=solverNodeName + "." + portName,
                             dstPortPath=portName)
                     else:
                         if portDataType != 'Execute':
@@ -996,6 +1003,8 @@ class Builder(Builder):
                     continue
                 elif portDataType == 'InlineDebugShape':
                     continue
+                elif portDataType == 'Execute' and portName == 'exec':
+                    continue
 
                 if portName == 'time':
                     pm.expression(o=canvasNode + '.time', s=canvasNode + '.time = time;')
@@ -1015,8 +1024,8 @@ class Builder(Builder):
                     # In CanvasMaya, output arrays are not resized by the system
                     # prior to calling into Canvas, so we explicily resize the
                     # arrays in the generated operator stub code.
-                    if portConnectionType in ['IO', 'Out']:
-                        arraySizes[portName] = len(connectedObjects)
+                    if connectedObjects is None:
+                        connectedObjects = []
 
                     connectionTargets = []
                     for i in xrange(len(connectedObjects)):
@@ -1041,13 +1050,13 @@ class Builder(Builder):
                 else:
                     if connectedObjects is None:
                         if isKLBased:
-                            opType = kOperator.getExtension()+":"+kOperator.getSolverTypeName()
+                            opType = kOperator.getExtension() + ":" + kOperator.getSolverTypeName()
                         else:
                             opType = kOperator.getPresetPath()
-                        logger.warning("Operator '" + kOperator.getName() +
+
+                        logger.warning("Operator '" + solverNodeName +
                                        "' of type '" + opType +
                                        "' port '" + portName + "' not connected.")
-                        continue
 
                     opObject = connectedObjects
                     dccSceneItem = self.getDCCSceneItem(opObject)
@@ -1127,15 +1136,16 @@ class Builder(Builder):
                                 connectionTargets[i]['opObject'],
                                 connectionTargets[i]['dccSceneItem'])
                     else:
-                        connectOutput(
-                            str(canvasNode + "." + portName),
-                            connectionTargets['opObject'],
-                            connectionTargets['dccSceneItem'])
+                        if connectionTargets['opObject'] is not None:
+                            connectOutput(
+                                str(canvasNode + "." + portName),
+                                connectionTargets['opObject'],
+                                connectionTargets['dccSceneItem'])
 
             if isKLBased is True:
-                opSourceCode = kOperator.generateSourceCode(arraySizes=arraySizes)
+                opSourceCode = kOperator.generateSourceCode()
                 pm.FabricCanvasSetCode(mayaNode=canvasNode,
-                                       execPath=kOperator.getName(),
+                                       execPath=solverNodeName,
                                        code=opSourceCode)
 
         finally:
@@ -1267,7 +1277,7 @@ class Builder(Builder):
         """Sets the color on the dccSceneItem.
 
         Args:
-            kSceneItem (Object): kraken object to set the color on.
+            kSceneItem (object): kraken object to set the color on.
 
         Return:
             bool: True if successful.
@@ -1280,7 +1290,20 @@ class Builder(Builder):
 
         if buildColor is not None:
             dccSceneItem.overrideEnabled.set(True)
-            dccSceneItem.overrideColor.set(colors[buildColor][0])
+            dccSceneItem.overrideRGBColors.set(True)
+
+            if type(buildColor) is str:
+
+                # Color in config is stored as rgb scalar values in a list
+                if type(colors[buildColor]) is list:
+                    dccSceneItem.overrideColorRGB.set(colors[buildColor][0], colors[buildColor][1], colors[buildColor][2])
+
+                # Color in config is stored as a Color object
+                elif type(colors[buildColor]).__name__ == 'Color':
+                    dccSceneItem.overrideColorRGB.set(colors[buildColor].r, colors[buildColor].g, colors[buildColor].b)
+
+            elif type(buildColor).__name__ == 'Color':
+                dccSceneItem.overrideColorRGB.set(colors[buildColor].r, colors[buildColor].g, colors[buildColor].b)
 
         return True
 

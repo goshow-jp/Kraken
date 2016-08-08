@@ -450,7 +450,7 @@ class Builder(object):
     # =========================
     # Operator Builder Methods
     # =========================
-    def buildKLOperator(self, kKLOperator):
+    def buildKLOperator(self, kKLOperator, buildName):
         """Builds Splice Operators on the components.
 
         Note:
@@ -464,11 +464,12 @@ class Builder(object):
 
         """
 
-        logger.info("buildKLOperator:" + kKLOperator.getPath())
+        logger.info("buildKLOperator:" + kKLOperator.getPath() + " as: " +
+                    buildName)
 
         return True
 
-    def buildCanvasOperator(self, kOperator):
+    def buildCanvasOperator(self, kOperator, buildName):
         """Builds Splice Operators on the components.
 
         Note:
@@ -483,7 +484,8 @@ class Builder(object):
 
         """
 
-        logger.info("buildCanvasOperator: " + kOperator.getPath())
+        logger.info("buildCanvasOperator: " + kOperator.getPath() + " as: " +
+                    buildName)
 
         return True
 
@@ -601,11 +603,11 @@ class Builder(object):
 
         elif kObject.isTypeOf("KLOperator"):
             if phase == self._buildPhase_ConstraintsOperators:
-                dccSceneItem = self.buildKLOperator(kObject)
+                dccSceneItem = self.buildKLOperator(kObject, buildName)
 
         elif kObject.isTypeOf("CanvasOperator"):
             if phase == self._buildPhase_ConstraintsOperators:
-                dccSceneItem = self.buildCanvasOperator(kObject)
+                dccSceneItem = self.buildCanvasOperator(kObject, buildName)
 
         # Important Note: The order of these tests is important.
         # New classes should be added above the classes they are derrived from.
@@ -769,11 +771,20 @@ class Builder(object):
         buildColor = None
         if objectColor is not None:
 
-            if objectColor not in colors.keys():
-                raise ValueError("Invalid color '" + objectColor +
-                                 "' set on: " + kSceneItem.getPath())
+            if type(objectColor) is str:
+                if objectColor not in colors:
+                    buildColor = colorMap['Default']
 
-            buildColor = objectColor
+                    warning = "Invalid color '{}' on '{}', default color '{}' will be used."
+                    logger.warn(warning.format(objectColor, kSceneItem.getPath(), buildColor))
+
+                else:
+                    buildColor = objectColor
+
+            elif type(objectColor).__name__ == "Color":
+                buildColor = objectColor
+            else:
+                raise TypeError("Invalid type for object color: '" + type(objectColor).__name__ + "'")
 
         else:
             #  Find the first color mapping that matches a type in the object

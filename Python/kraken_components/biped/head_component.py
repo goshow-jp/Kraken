@@ -247,7 +247,7 @@ class HeadComponentRig(HeadComponent):
         self.eyeLeftCtrlSpace = self.eyeLeftCtrl.insertCtrlSpace()
         self.eyeLeftCtrl.rotatePoints(0, 90, 0)
         self.eyeLeftCtrl.scalePoints(Vec3(0.5, 0.5, 0.5))
-        self.eyeLeftCtrl.setColor('blueMedium')
+        self.eyeLeftCtrl.setColor('mediumblue')
 
         # Eye Right
         self.eyeRightCtrl = Control('eyeRight', parent=self.ctrlCmpGrp, shape='sphere')
@@ -256,7 +256,7 @@ class HeadComponentRig(HeadComponent):
         self.eyeRightCtrlSpace = self.eyeRightCtrl.insertCtrlSpace()
         self.eyeRightCtrl.rotatePoints(0, 90, 0)
         self.eyeRightCtrl.scalePoints(Vec3(0.5, 0.5, 0.5))
-        self.eyeRightCtrl.setColor('blueMedium')
+        self.eyeRightCtrl.setColor('mediumblue')
 
         # LookAt Control
         self.lookAtCtrl = Control('lookAt', parent=self.ctrlCmpGrp, shape='square')
@@ -330,7 +330,7 @@ class HeadComponentRig(HeadComponent):
         self.eyeROutputTgt.addConstraint(self.eyeROutputConstraint)
 
         # Add Eye Left Direction KL Op
-        self.eyeLeftDirKLOp = KLOperator('eyeLeftDirKLOp', 'DirectionConstraintSolver', 'Kraken')
+        self.eyeLeftDirKLOp = KLOperator('eyeLeftDir', 'DirectionConstraintSolver', 'Kraken')
         self.addOperator(self.eyeLeftDirKLOp)
 
         # Add Att Inputs
@@ -346,7 +346,7 @@ class HeadComponentRig(HeadComponent):
         self.eyeLeftDirKLOp.setOutput('constrainee', self.eyeLeftCtrlSpace)
 
         # Add Eye Right Direction KL Op
-        self.eyeRightDirKLOp = KLOperator('eyeRightDirKLOp', 'DirectionConstraintSolver', 'Kraken')
+        self.eyeRightDirKLOp = KLOperator('eyeRightDir', 'DirectionConstraintSolver', 'Kraken')
         self.addOperator(self.eyeRightDirKLOp)
 
         # Add Att Inputs
@@ -363,7 +363,7 @@ class HeadComponentRig(HeadComponent):
 
 
         # Add Deformer Joints KL Op
-        self.outputsToDeformersKLOp = KLOperator('headDeformerKLOp', 'MultiPoseConstraintSolver', 'Kraken')
+        self.outputsToDeformersKLOp = KLOperator('defConstraint', 'MultiPoseConstraintSolver', 'Kraken')
         self.addOperator(self.outputsToDeformersKLOp)
 
         # Add Att Inputs
