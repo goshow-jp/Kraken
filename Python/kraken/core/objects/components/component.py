@@ -32,7 +32,7 @@ class Component(Object3D):
     """Kraken Component object."""
 
     def __init__(self, name, parent=None, location='M'):
-        self._location = location
+        self.location = StringAttribute('location', value=location)
         super(Component, self).__init__(name, parent)
         self._color = (154, 205, 50, 255)
         self._inputs = []
@@ -109,7 +109,7 @@ class Component(Object3D):
 
         """
 
-        return self._location
+        return self.location.getValue()
 
 
     def setLocation(self, location):
@@ -123,9 +123,15 @@ class Component(Object3D):
 
         """
 
-        # TODO: check that the given location is a valid value found in the config
+        config = Config.getInstance()
+        nameTemplate = config.getNameTemplate()
+        locations = nameTemplate['locations']
 
-        self._location = location
+        if location not in locations:
+            logger.warn("'{}' is not a valid location. Valid locations are: {}".format(location, ','.join(locations)))
+            return False
+
+        self.location.setValue(location)
 
         # The new location might cause a name colision.
         # forcing a name refresh will generate a new name if a collision exists
@@ -919,13 +925,17 @@ class Component(Object3D):
 
         """
 
-        if 'location' in data:
+        location = data.get('location', None)
+        compName = data.get('name', None)
+        graphPos = data.get('graphPos', None)
+
+        if location is not None:
             self.setLocation(data['location'])
 
-        if 'name' in data:
+        if compName is not None:
             self.setName(data['name'])
 
-        if 'graphPos' in data:
+        if graphPos is not None:
             self.setGraphPos(data['graphPos'])
 
         for i in range(self.getNumAttributeGroups()):

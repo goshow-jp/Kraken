@@ -549,7 +549,7 @@ class Builder(Builder):
     # =========================
     # Constraint Build Methods
     # =========================
-    def buildOrientationConstraint(self, kConstraint):
+    def buildOrientationConstraint(self, kConstraint, buildName):
         """Builds an orientation constraint represented by the kConstraint.
 
         Args:
@@ -590,11 +590,13 @@ class Builder(Builder):
                                              offsetAngles.y,
                                              offsetAngles.z])
 
+        pm.rename(dccSceneItem, buildName)
+
         self._registerSceneItemPair(kConstraint, dccSceneItem)
 
         return dccSceneItem
 
-    def buildPoseConstraint(self, kConstraint):
+    def buildPoseConstraint(self, kConstraint, buildName):
         """Builds an pose constraint represented by the kConstraint.
 
         Args:
@@ -609,13 +611,21 @@ class Builder(Builder):
         dccSceneItem = pm.parentConstraint(
             [self.getDCCSceneItem(x) for x in kConstraint.getConstrainers()],
             constraineeDCCSceneItem,
-            name=kConstraint.getName() + "_par_cns",
+            name=buildName,
             maintainOffset=kConstraint.getMaintainOffset())
+
+        # We need this block of code to replace the pose constraint name with
+        # the scale constraint name since we don't have a single pos, rot, scl,
+        # constraint in Maya.
+        config = Config.getInstance()
+        nameTemplate = config.getNameTemplate()
+        poseCnsName = nameTemplate['types']['PoseConstraint']
+        sclCnsName = nameTemplate['types']['ScaleConstraint']
 
         scaleConstraint = pm.scaleConstraint(
             [self.getDCCSceneItem(x) for x in kConstraint.getConstrainers()],
             constraineeDCCSceneItem,
-            name=kConstraint.getName() + "_scl_cns",
+            name=buildName.replace(poseCnsName, sclCnsName),
             maintainOffset=kConstraint.getMaintainOffset())
 
         if kConstraint.getMaintainOffset() is True:
@@ -669,7 +679,7 @@ class Builder(Builder):
 
         return dccSceneItem
 
-    def buildPositionConstraint(self, kConstraint):
+    def buildPositionConstraint(self, kConstraint, buildName):
         """Builds an position constraint represented by the kConstraint.
 
         Args:
@@ -684,7 +694,7 @@ class Builder(Builder):
         dccSceneItem = pm.pointConstraint(
             [self.getDCCSceneItem(x) for x in kConstraint.getConstrainers()],
             constraineeDCCSceneItem,
-            name=kConstraint.getName() + "_pos_cns",
+            name=buildName,
             maintainOffset=kConstraint.getMaintainOffset())
 
         if kConstraint.getMaintainOffset() is True:
@@ -699,7 +709,7 @@ class Builder(Builder):
 
         return dccSceneItem
 
-    def buildScaleConstraint(self, kConstraint):
+    def buildScaleConstraint(self, kConstraint, buildName):
         """Builds an scale constraint represented by the kConstraint.
 
         Args:
@@ -714,7 +724,7 @@ class Builder(Builder):
         dccSceneItem = pm.scaleConstraint(
             [self.getDCCSceneItem(x) for x in kConstraint.getConstrainers()],
             constraineeDCCSceneItem,
-            name=kConstraint.getName() + "_scl_cns",
+            name=buildName,
             maintainOffset=kConstraint.getMaintainOffset())
 
         if kConstraint.getMaintainOffset() is True:
@@ -846,6 +856,7 @@ class Builder(Builder):
             typeTokens = nameTemplate['types']
             opTypeToken = typeTokens.get(type(kOperator).__name__, 'op')
             solverNodeName = '_'.join([kOperator.getName(), opTypeToken])
+            solverSolveNodeName = '_'.join([kOperator.getName(), 'solve', opTypeToken])
 
             if isKLBased is True:
 
@@ -855,21 +866,44 @@ class Builder(Builder):
 
                 solverTypeName = kOperator.getSolverTypeName()
 
+                # Create Solver Function Node
+                dfgEntry = "dfgEntry {\n  solver = " + solverTypeName + "();\n}"
+                solverNodeCode = "{}\n\n{}".format('require ' + kOperator.getExtension() + ';', dfgEntry)
+
                 pm.FabricCanvasAddFunc(mayaNode=canvasNode,
                                        execPath="",
                                        title=solverNodeName,
-                                       code="dfgEntry {}", xPos="100", yPos="100")
+                                       code=solverNodeCode, xPos="-220", yPos="100")
 
                 pm.FabricCanvasAddPort(mayaNode=canvasNode,
                                        execPath=solverNodeName,
                                        desiredPortName="solver",
-                                       portType="IO",
+                                       portType="Out",
                                        typeSpec=solverTypeName,
                                        connectToPortPath="",
                                        extDep=kOperator.getExtension())
 
-                pm.FabricCanvasAddPort(mayaNode=canvasNode,
+                solverVarName = pm.FabricCanvasAddVar(mayaNode=canvasNode,
+                                                      execPath="",
+                                                      desiredNodeName="solverVar",
+                                                      xPos="-75",
+                                                      yPos="100",
+                                                      type=solverTypeName,
+                                                      extDep=kOperator.getExtension())
+
+                pm.FabricCanvasConnect(mayaNode=canvasNode,
                                        execPath="",
+                                       srcPortPath=solverNodeName + ".solver",
+                                       dstPortPath=solverVarName + ".value")
+
+                # Crate Solver "Solve" Function Node
+                pm.FabricCanvasAddFunc(mayaNode=canvasNode,
+                                       execPath="",
+                                       title=solverSolveNodeName,
+                                       code="dfgEntry {}", xPos="100", yPos="100")
+
+                pm.FabricCanvasAddPort(mayaNode=canvasNode,
+                                       execPath=solverSolveNodeName,
                                        desiredPortName="solver",
                                        portType="IO",
                                        typeSpec=solverTypeName,
@@ -878,13 +912,13 @@ class Builder(Builder):
 
                 pm.FabricCanvasConnect(mayaNode=canvasNode,
                                        execPath="",
-                                       srcPortPath="solver",
-                                       dstPortPath=solverNodeName + ".solver")
+                                       srcPortPath=solverVarName + ".value",
+                                       dstPortPath=solverSolveNodeName + ".solver")
 
                 pm.FabricCanvasConnect(mayaNode=canvasNode,
                                        execPath="",
-                                       srcPortPath=solverNodeName + ".solver",
-                                       dstPortPath="solver")
+                                       srcPortPath=solverSolveNodeName + ".solver",
+                                       dstPortPath="exec")
             else:
                 pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
                                           execPath="",
@@ -927,7 +961,7 @@ class Builder(Builder):
                                                connectToPortPath="")
 
                         pm.FabricCanvasAddPort(mayaNode=canvasNode,
-                                               execPath=solverNodeName,
+                                               execPath=solverSolveNodeName,
                                                desiredPortName=portName,
                                                portType="In",
                                                typeSpec=portDataType,
@@ -936,7 +970,7 @@ class Builder(Builder):
                         pm.FabricCanvasConnect(mayaNode=canvasNode,
                                                execPath="",
                                                srcPortPath=portName,
-                                               dstPortPath=solverNodeName + "." + portName)
+                                               dstPortPath=solverSolveNodeName + "." + portName)
 
                     else:
                         if portDataType != 'Execute':
@@ -955,43 +989,40 @@ class Builder(Builder):
                             dstPortPath=graphNodeName + "." + portName)
 
                 elif portConnectionType in ['IO', 'Out']:
-                    if isKLBased is True:
-                        pm.FabricCanvasAddPort(
-                            mayaNode=canvasNode,
-                            execPath="",
-                            desiredPortName=portName,
-                            portType="Out",
-                            typeSpec=portDataType,
-                            connectToPortPath="")
 
-                        pm.FabricCanvasAddPort(
-                            mayaNode=canvasNode,
-                            execPath=solverNodeName,
-                            desiredPortName=portName,
-                            portType="Out",
-                            typeSpec=portDataType,
-                            connectToPortPath="")
-
-                        pm.FabricCanvasConnect(
-                            mayaNode=canvasNode,
-                            execPath="",
-                            srcPortPath=solverNodeName + "." + portName,
-                            dstPortPath=portName)
+                    if portDataType in ('Execute', 'InlineInstance', 'DrawingHandle'):
+                        # Don't expose invalid Maya data type InlineInstance, instead connect to exec port
+                        dstPortPath = "exec"
                     else:
-                        if portDataType != 'Execute':
-                            pm.FabricCanvasAddPort(
-                                mayaNode=canvasNode,
-                                execPath="",
-                                desiredPortName=portName,
-                                portType="Out",
-                                typeSpec=portDataType,
-                                connectToPortPath="")
+                        dstPortPath = portName
 
-                        pm.FabricCanvasConnect(
+                    if isKLBased is True:
+                        srcPortNode = solverSolveNodeName
+                        pm.FabricCanvasAddPort(
+                            mayaNode=canvasNode,
+                            execPath=solverSolveNodeName,
+                            desiredPortName=portName,
+                            portType="Out",
+                            typeSpec=portDataType,
+                            connectToPortPath="")
+                    else:
+                        srcPortNode = graphNodeName
+
+                    if portDataType not in ('Execute', 'InlineInstance', 'DrawingHandle'):
+                        pm.FabricCanvasAddPort(
                             mayaNode=canvasNode,
                             execPath="",
-                            srcPortPath=graphNodeName + "." + portName,
-                            dstPortPath=portName)
+                            desiredPortName=portName,
+                            portType="Out",
+                            typeSpec=portDataType,
+                            connectToPortPath="")
+
+                    pm.FabricCanvasConnect(
+                        mayaNode=canvasNode,
+                        execPath="",
+                        srcPortPath=srcPortNode + "." + portName,
+                        dstPortPath=dstPortPath)
+
                 else:
                     raise Exception("Invalid connection type:" + portConnectionType)
 
@@ -1054,7 +1085,7 @@ class Builder(Builder):
                         else:
                             opType = kOperator.getPresetPath()
 
-                        logger.warning("Operator '" + solverNodeName +
+                        logger.warning("Operator '" + solverSolveNodeName +
                                        "' of type '" + opType +
                                        "' port '" + portName + "' not connected.")
 
@@ -1145,7 +1176,7 @@ class Builder(Builder):
             if isKLBased is True:
                 opSourceCode = kOperator.generateSourceCode()
                 pm.FabricCanvasSetCode(mayaNode=canvasNode,
-                                       execPath=solverNodeName,
+                                       execPath=solverSolveNodeName,
                                        code=opSourceCode)
 
         finally:
@@ -1403,12 +1434,18 @@ class Builder(Builder):
 
         return True
 
-    def _postBuild(self):
+    def _postBuild(self, kSceneItem):
         """Post-Build commands.
+
+        Args:
+            kSceneItem (object): kraken kSceneItem object to run post-build
+                operations on.
 
         Return:
             bool: True if successful.
 
         """
+
+        super(Builder, self)._postBuild(kSceneItem)
 
         return True

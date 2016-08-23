@@ -30,6 +30,9 @@ class Config(object):
         self._controlShapes = self.initControlShapes()
         self._metaData = {}
 
+    def getModulePath(self):
+        return self.__module__ + '.' + self.__class__.__name__
+
     # ================
     # Object Settings
     # ================
@@ -310,6 +313,10 @@ class Config(object):
                 "Layer": "",
                 "Locator": "loc",
                 "CtrlSpace": "ctrlSpace",
+                "OrientationConstraint": "oriCns",
+                "PoseConstraint": "poseCns",
+                "PositionConstraint": "posCns",
+                "ScaleConstraint": "sclCns",
                 "KLOperator": "klOp",
                 "CanvasOperator": "canvasOp"
             },
