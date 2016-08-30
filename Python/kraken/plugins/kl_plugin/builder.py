@@ -1734,7 +1734,7 @@ class Builder(Builder):
             value = self.getBuildColor(kSceneItem)
         if value:
             colors = self.config.getColors()
-            c = colors[value]
+            c = colors.get(value)
             if isinstance(c, Color):
               value = c
             elif isinstance(c, list):

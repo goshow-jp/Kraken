@@ -37,12 +37,14 @@ class Builder(object):
         _buildPhase_3DObjectsAttributes (type): Description.
         _buildPhase_AttributeConnections (type): Description.
         _buildPhase_ConstraintsOperators (type): Description.
+        _buildPhase_3DObjectsSkeleton (type): Description.
 
     """
 
     _buildPhase_3DObjectsAttributes = 0
     _buildPhase_AttributeConnections = 1
     _buildPhase_ConstraintsOperators = 2
+    _buildPhase_3DObjectsSkeleton = 3
 
     def __init__(self, debugMode=False):
         super(Builder, self).__init__()
@@ -212,7 +214,6 @@ class Builder(object):
 
         """
 
-
         logger.info("buildLocator: " + kSceneItem.getPath() + " as: " +
                     buildName)
 
@@ -248,6 +249,23 @@ class Builder(object):
         """
 
         logger.info("buildControl:" + kSceneItem.getPath() + " as: " +
+                    buildName)
+
+        return None
+
+    def buildSkeleton(self, kSceneItem, buildName):
+        """Builds a locator / null object.
+
+        Args:
+            kSceneItem (object): kSceneItem that represents a locator / null to be built.
+            buildName (string): The name to use on the built object.
+
+        Returns:
+            object: DCC Scene Item that is created.
+
+        """
+
+        logger.info("buildSkeleton: " + kSceneItem.getPath() + " as: " +
                     buildName)
 
         return None
@@ -519,6 +537,9 @@ class Builder(object):
             if phase == self._buildPhase_3DObjectsAttributes:
                 dccSceneItem = self.buildContainer(kObject, buildName)
 
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                dccSceneItem = self.buildSkeletonContainer(kObject, buildName)
+
         elif kObject.isTypeOf("Layer"):
             if phase == self._buildPhase_3DObjectsAttributes:
                 dccSceneItem = self.buildLayer(kObject, buildName)
@@ -617,6 +638,10 @@ class Builder(object):
             if phase == 0:
                 dccSceneItem = self.buildLocator(kObject, buildName)
 
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                if kObject.isTypeOf('ComponentInput') or kObject.isTypeOf('ComponentOutput'):
+                    dccSceneItem = self.buildSkeleton(kObject, buildName)
+
         else:
             raise NotImplementedError(kObject.getName() +
                                       ' has an unsupported type: ' +
@@ -697,6 +722,10 @@ class Builder(object):
 
             self.__buildSceneItemList(attributes,
                                       self._buildPhase_3DObjectsAttributes)
+
+            # build abstract skeleton
+            self.__buildSceneItemList(objects3d,
+                                      self._buildPhase_3DObjectsSkeleton)
 
             # connect all attributes
             self.__buildSceneItemList(attributes,
