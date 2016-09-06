@@ -5,6 +5,8 @@ GraphManager -- Node management.
 
 """
 
+from collections import defaultdict
+
 from kraken.core.kraken_system import ks
 from kraken.plugins.canvas_plugin.graph_manager import GraphManager
 import FabricEngine.Core as core
@@ -43,7 +45,7 @@ class MayaGraphManager(GraphManager):
         self._GraphManager__dfgArgs = {}
         self._GraphManager__dfgNodes = {}
         self._GraphManager__dfgNodeAndPortMap = {}
-        self._GraphManager__dfgConnections = {}
+        self._GraphManager__dfgConnections = defaultdict(dict)
         self._GraphManager__dfgGroups = {}
         self._GraphManager__dfgGroupNames = []
         self._GraphManager__dfgCurrentGroup = None

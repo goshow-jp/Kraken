@@ -6,6 +6,7 @@ GraphManager -- Node management.
 """
 
 import json
+from collections import defaultdict
 
 from kraken.core.kraken_system import ks
 # import FabricEngine.Core as core
@@ -37,7 +38,7 @@ class GraphManager(object):
         self.__dfgArgs = {}
         self.__dfgNodes = {}
         self.__dfgNodeAndPortMap = {}
-        self.__dfgConnections = {}
+        self.__dfgConnections = defaultdict(dict)
         self.__dfgGroups = {}
         self.__dfgGroupNames = []
         self.__dfgCurrentGroup = None
@@ -254,10 +255,10 @@ class GraphManager(object):
                     break
 
         # clean up connections
-        if node in self.__dfgConnections:
-            del self.__dfgConnections[node]
-        for nodeName in self.__dfgConnections:
-            ports = self.__dfgConnections[nodeName]
+        if node in self.__dfgConnections[dfgExec]:
+            del self.__dfgConnections[dfgExec][node]
+        for nodeName in self.__dfgConnections[dfgExec]:
+            ports = self.__dfgConnections[dfgExec][nodeName]
             for portName in ports:
                 connections = ports[portName]
                 newConnections = []
@@ -266,7 +267,7 @@ class GraphManager(object):
                         continue
 
                     newConnections += [c]
-                self.__dfgConnections[nodeName][portName] = newConnections
+                self.__dfgConnections[dfgExec][nodeName][portName] = newConnections
 
         return True
 
@@ -307,11 +308,13 @@ class GraphManager(object):
 
         dfgExec.connectTo(nodeA+'.'+portA, nodeB+'.'+portB)
 
-        if not self.__dfgConnections.has_key(nodeA):
-          self.__dfgConnections[nodeA] = {}
-        if not self.__dfgConnections[nodeA].has_key(portA):
-          self.__dfgConnections[nodeA][portA] = []
-        self.__dfgConnections[nodeA][portA].append((nodeB, portB))
+        if nodeA not in self.__dfgConnections[dfgExec]:
+          self.__dfgConnections[dfgExec][nodeA] = {}
+
+        if not self.__dfgConnections[dfgExec][nodeA].has_key(portA):
+          self.__dfgConnections[dfgExec][nodeA][portA] = []
+
+        self.__dfgConnections[dfgExec][nodeA][portA].append((nodeB, portB))
 
         return True
 
@@ -336,7 +339,7 @@ class GraphManager(object):
         prevConnections = self.getConnections(oldNode, oldPort, dfgExec)
         for c in prevConnections:
             if c[0] == newNode:
-              continue
+                continue
             self.removeConnection(c[0], c[1], dfgExec)
             self.connectNodes(newNode, newPort, c[0], c[1], dfgExec)
 
@@ -345,8 +348,8 @@ class GraphManager(object):
             dfgExec = self.__dfgExec
 
         result = False
-        for nodeName in self.__dfgConnections:
-            ports = self.__dfgConnections[nodeName]
+        for nodeName in self.__dfgConnections[dfgExec]:
+            ports = self.__dfgConnections[dfgExec][nodeName]
             for portName in ports:
                 connections = ports[portName]
                 newConnections = []
@@ -357,7 +360,7 @@ class GraphManager(object):
                         break
                     else:
                         newConnections += [connections[i]]
-                self.__dfgConnections[nodeName][portName] = newConnections
+                self.__dfgConnections[dfgExec][nodeName][portName] = newConnections
                 if result:
                     return result
 
@@ -368,8 +371,8 @@ class GraphManager(object):
             dfgExec = self.__dfgExec
 
         result = []
-        for nodeName in self.__dfgConnections:
-            ports = self.__dfgConnections[nodeName]
+        for nodeName in self.__dfgConnections[dfgExec]:
+            ports = self.__dfgConnections[dfgExec][nodeName]
             for portName in ports:
                 connections = ports[portName]
                 if targets:
@@ -522,7 +525,7 @@ class GraphManager(object):
     def getNodeConnections(self, nodeName):
         keys = {}
         result = []
-        node = self.__dfgConnections.get(nodeName, {})
+        node = self.__dfgConnections[dfgExec].get(nodeName, {})
         for portName in node:
             port = node[portName]
             for (otherNode, otherPort) in port:
@@ -537,8 +540,8 @@ class GraphManager(object):
     def getAllNodeConnections(self):
         keys = {}
         result = {}
-        for nodeName in self.__dfgConnections:
-            node = self.__dfgConnections[nodeName]
+        for nodeName in self.__dfgConnections[dfgExec]:
+            node = self.__dfgConnections[dfgExec][nodeName]
             for portName in node:
                 port = node[portName]
                 for (otherNode, otherPort) in port:
@@ -566,8 +569,8 @@ class GraphManager(object):
         return 0
 
     def hasInputConnections(self, node):
-        for nodeName in self.__dfgConnections:
-            ports = self.__dfgConnections[nodeName]
+        for nodeName in self.__dfgConnections[dfgExec]:
+            ports = self.__dfgConnections[dfgExec][nodeName]
             for portName in ports:
                 connections = ports[portName]
                 for c in connections:
@@ -577,7 +580,7 @@ class GraphManager(object):
         return False
 
     def hasOutputConnections(self, node):
-        ports = self.__dfgConnections.get(node, {})
+        ports = self.__dfgConnections[dfgExec].get(node, {})
         for port in ports:
             if len(ports) > 0:
                 return True
@@ -605,7 +608,7 @@ class GraphManager(object):
             dfgExec = self.__dfgExec
 
         minIndex = 10000
-        node = self.__dfgConnections.get(sourceNode, {})
+        node = self.__dfgConnections[dfgExec].get(sourceNode, {})
         for portName in node:
             port = node[portName]
             for (otherNode, otherPort) in port:
