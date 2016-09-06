@@ -212,13 +212,13 @@ class Builder(Builder):
         self.setCurrentGroupSI(kSceneItem)
 
         path = kSceneItem.getPath()
-        preset = "Kraken.Constructors.Kraken%s" % cls
+        preset = "Kraken.KrakenForCanvas.Constructors.Kraken%s" % cls
         node = self.rigGraph.createNodeFromPresetSI(kSceneItem, preset, title='constructor')
         self._registerSceneItemPair(kSceneItem, node)
 
         # only the types which support animation
         if isinstance(kSceneItem, Control):
-            preset = "Kraken.Constructors.GetXfo"
+            preset = "Kraken.KrakenForCanvas.Constructors.GetXfo"
             xfoNode = self.rigGraph.createNodeFromPresetSI(kSceneItem, preset, title='getXfo')
             self.rigGraph.connectNodes(node, 'result', xfoNode, 'this')
             self.setTransformPortSI(kSceneItem, xfoNode, 'result')
@@ -273,9 +273,9 @@ class Builder(Builder):
                 #,'Joint'
             ]:
               (prevNode, prevPort) = self.__dfgLastLinesNode
-              preset = "Kraken.DebugDrawing.DrawIntoLinesObject"
+              preset = "Kraken.KrakenForCanvas.DebugDrawing.DrawIntoLinesObject"
               if isinstance(kSceneItem, Control):
-                preset = "Kraken.DebugDrawing.DrawIntoLinesObjectForControl"
+                preset = "Kraken.KrakenForCanvas.DebugDrawing.DrawIntoLinesObjectForControl"
               drawNode = self.rigGraph.createNodeFromPresetSI(kSceneItem, preset, title='drawIntoLines')
               self.rigGraph.connectNodes(node, 'result', drawNode, 'this')
               (xfoNode, xfoPort) = self.rigGraph.getNodeAndPortSI(kSceneItem, asInput=False)
@@ -316,7 +316,7 @@ class Builder(Builder):
         self.setCurrentGroupSI(kAttribute)
 
         path = kAttribute.getPath()
-        preset = "Kraken.Attributes.Kraken%s" % cls
+        preset = "Kraken.KrakenForCanvas.Attributes.Kraken%s" % cls
         node = self.rigGraph.createNodeFromPresetSI(kAttribute, preset, title='constructor')
         self.rigGraph.setNodeAndPortSI(kAttribute, node, 'value')
 
@@ -326,7 +326,7 @@ class Builder(Builder):
             if isinstance(kAttribute, ScalarAttribute):
                 if self.rigGraph.hasArgument('floats'):
                     self.rigGraph.connectArg('floats', node, 'floatAnimation')
-                preset = "Kraken.Attributes.Get%sValue" % cls[:-9]
+                preset = "Kraken.KrakenForCanvas.Attributes.Get%sValue" % cls[:-9]
                 valueNode = self.rigGraph.createNodeFromPresetSI(kAttribute, preset, title="getValue")
                 self.rigGraph.connectNodes(node, 'result', valueNode, 'this')
                 self.rigGraph.setNodeAndPortSI(kAttribute, valueNode, 'result', asInput=False)
@@ -393,15 +393,15 @@ class Builder(Builder):
 
             (constrainerNode, constrainerPort) = self.rigGraph.getNodeAndPortSI(constrainers[0], asInput=False)
 
-            preset = "Kraken.Constraints.ComputeKraken%s" % cls
+            preset = "Kraken.KrakenForCanvas.Constraints.ComputeKraken%s" % cls
             computeNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='compute')
             self.rigGraph.connectNodes(constrainerNode, constrainerPort, computeNode, 'constrainer')
             self.rigGraph.connectNodes(constraineeNode, constraineePort, computeNode, 'constrainee')
 
             if kConstraint.getMaintainOffset():
-                preset = "Kraken.Constraints.Kraken%s" % cls
+                preset = "Kraken.KrakenForCanvas.Constraints.Kraken%s" % cls
                 constructNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='constructor')
-                preset = "Kraken.Constraints.ComputeOffsetSimple"
+                preset = "Kraken.KrakenForCanvas.Constraints.ComputeOffsetSimple"
                 computeOffsetNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='computeOffset')
                 self.rigGraph.connectNodes(constructNode, 'result', computeOffsetNode, 'this')
                 self.rigGraph.connectNodes(constrainerNode, constrainerPort, computeOffsetNode, 'constrainer')
@@ -413,13 +413,13 @@ class Builder(Builder):
 
         else:
 
-            preset = "Kraken.Constraints.Kraken%s" % cls
+            preset = "Kraken.KrakenForCanvas.Constraints.Kraken%s" % cls
             constructNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='constructor')
             lastNode = constructNode
             lastPort = "result"
 
             for constrainer in constrainers:
-                preset = "Kraken.Constraints.AddConstrainer"
+                preset = "Kraken.KrakenForCanvas.Constraints.AddConstrainer"
                 title = 'addConstrainer_' + constrainer.getPath()
                 addNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title=title)
 
@@ -431,13 +431,13 @@ class Builder(Builder):
                 lastNode = addNode
                 lastPort = 'this'
 
-            preset = "Kraken.Constraints.Compute"
+            preset = "Kraken.KrakenForCanvas.Constraints.Compute"
             computeNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='compute')
             self.rigGraph.connectNodes(lastNode, lastPort, computeNode, 'this')
             self.rigGraph.connectNodes(constraineeNode, constraineePort, computeNode, 'xfo')
 
             if kConstraint.getMaintainOffset():
-                preset = "Kraken.Constraints.ComputeOffset"
+                preset = "Kraken.KrakenForCanvas.KrakenForCanvas.Constraints.ComputeOffset"
                 computeOffsetNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='computeOffset')
                 self.rigGraph.connectNodes(lastNode, lastPort, computeOffsetNode, 'this')
                 self.rigGraph.connectNodes(constraineeNode, constraineePort, computeOffsetNode, 'constrainee')
@@ -454,7 +454,7 @@ class Builder(Builder):
     def buildCanvasCurveShape(self, curveData):
 
         if self.__dfgCurves is None:
-            preset = "Kraken.DebugDrawing.KrakenCurveDict"
+            preset = "Kraken.KrakenForCanvas.DebugDrawing.KrakenCurveDict"
             self.__dfgLastCurveNode = self.rigGraph.createNodeFromPreset('drawing', preset, title='curveDict')
             self.__dfgCurves = {}
 
@@ -497,7 +497,7 @@ class Builder(Builder):
             for i in range(len(indices)):
                 indicesRTVal[i] = ks.rtVal('UInt32', indices[i])
 
-            preset = "Kraken.DebugDrawing.DefineCurve"
+            preset = "Kraken.KrakenForCanvas.DebugDrawing.DefineCurve"
             curveNode = self.rigGraph.createNodeFromPreset('drawing', preset, title=shapeHash)
 
             self.rigGraph.setPortDefaultValue(curveNode, 'shapeHash', shapeHashVal)
@@ -1185,7 +1185,7 @@ class Builder(Builder):
         self.controlGraph.getOrCreateArgument('dict', dataType='Xfo[String]', portType="IO")
         self.controlGraph.getOrCreateArgument('key', dataType='String', portType="In")
         self.controlGraph.getOrCreateArgument('value', dataType='Xfo', portType="In")
-        preset = 'Kraken.Dictionaries.XfoDict.Set'
+        preset = 'Kraken.KrakenForCanvas.Dictionaries.XfoDict.Set'
         node = self.controlGraph.createNodeFromPreset('dict', preset)
         self.controlGraph.connectArg('dict', node, 'dict')
         self.controlGraph.connectArg('key', node, 'key')
@@ -1199,7 +1199,7 @@ class Builder(Builder):
         self.attributeGraph.getOrCreateArgument('value', dataType='Xfo', portType="In")
         dfgExec = self.attributeGraph.getExec()
         dfgExec.setExecPortMetadata('value', 'uiRange', '(0.0, 1.0)')
-        preset = 'Kraken.Dictionaries.Float32Dict.Set'
+        preset = 'Kraken.KrakenForCanvas.Dictionaries.Float32Dict.Set'
         node = self.attributeGraph.createNodeFromPreset('dict', preset)
         self.attributeGraph.connectArg('dict', node, 'dict')
         self.attributeGraph.connectArg('key', node, 'key')
