@@ -253,6 +253,23 @@ class Builder(object):
 
         return None
 
+    def buildCanvasContainer(self, kSceneItem, buildName):
+        """Builds a locator / null object.
+
+        Args:
+            kSceneItem (object): kSceneItem that represents a locator / null to be built.
+            buildName (string): The name to use on the built object.
+
+        Returns:
+            object: DCC Scene Item that is created.
+
+        """
+
+        logger.info("buildCanvasContainer: " + kSceneItem.getPath() + " as: " +
+                    buildName)
+
+        return None
+
     def buildSkeletonContainer(self, kSceneItem, buildName):
         """Builds a locator / null object.
 
