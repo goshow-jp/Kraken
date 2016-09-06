@@ -45,11 +45,7 @@ class CanvasOperator(object):
         else:
             self.buildPresetBasedBase(kOperator, buildName)
 
-        try:
-            self.buildPorts(kOperator, buildName)
-        except Exception as e:
-            import traceback
-            print traceback.format_exc()
+        self.buildPorts(kOperator, buildName)
         self.setOperatorCode(kOperator, buildName)
 
     def buildBase(self, kOperator, buildName, rigGraph):
@@ -389,6 +385,13 @@ class CanvasOperator(object):
 
         tgt = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, tgt.split(".")[-1]))
 
+        if type(dccSceneItem) == AbstractBone:
+            message = ("Operator '" + self.solverSolveNodeName +
+                       "' port '" + portName + "' not connected."
+                       "' dccSceneItem type '" + str(type(dccSceneItem)) + "' not supported.")
+            logger.warning(message)
+            return
+
         if isinstance(opObject, Attribute):
             pm.connectAttr(dccSceneItem, tgt)
         elif isinstance(opObject, Object3D):
@@ -431,13 +434,6 @@ class CanvasOperator(object):
 
     def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem):
 
-        if type(dccSceneItem) == AbstractBone:
-            message = ("Operator '" + self.solverSolveNodeName +
-                       "' port '" + portName + "' not connected."
-                       "' dccSceneItem type '" + str(type(dccSceneItem)) + "' not supported.")
-            logger.warning(message)
-            return
-
         desiredPortName = "{}_{}".format(buildName, portName)
         realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
                                               execPath="",
@@ -460,6 +456,13 @@ class CanvasOperator(object):
                                    dstPortPath=realPortName)
 
         src = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, src.split(".")[-1]))
+
+        if type(dccSceneItem) == AbstractBone:
+            message = ("Operator '" + self.solverSolveNodeName +
+                       "' port '" + portName + "' not connected."
+                       "' dccSceneItem type '" + str(type(dccSceneItem)) + "' not supported.")
+            logger.warning(message)
+            return
 
         if isinstance(opObject, Attribute):
             pm.connectAttr(src, dccSceneItem)
@@ -509,7 +512,6 @@ class CanvasOperator(object):
 
         # Get the port's input from the DCC
         connectionTargets = self.getConnectionTargets(kOperator, portName, portConnectionType, portDataType)
-
         # Add the Canvas Port for each port.
         if portConnectionType == 'In':
             self.makeConnectInput(kOperator, buildName, portName, portConnectionType, portDataType, connectionTargets)
