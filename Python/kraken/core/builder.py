@@ -253,6 +253,39 @@ class Builder(object):
 
         return None
 
+    def buildSkeletonContainer(self, kSceneItem, buildName):
+        """Builds a locator / null object.
+
+        Args:
+            kSceneItem (object): kSceneItem that represents a locator / null to be built.
+            buildName (string): The name to use on the built object.
+
+        Returns:
+            object: DCC Scene Item that is created.
+
+        """
+
+        logger.info("buildSkeletonContainer: " + kSceneItem.getPath() + " as: " +
+                    buildName)
+        return None
+
+    def buildConstraintContainer(self, kSceneItem, buildName):
+        """Builds a locator / null object.
+
+        Args:
+            kSceneItem (object): kSceneItem that represents a locator / null to be built.
+            buildName (string): The name to use on the built object.
+
+        Returns:
+            object: DCC Scene Item that is created.
+
+        """
+
+        logger.info("buildConstraintContainer: " + kSceneItem.getPath() + " as: " +
+                    buildName)
+
+        return None
+
     def buildSkeleton(self, kSceneItem, buildName):
         """Builds a locator / null object.
 
@@ -267,8 +300,9 @@ class Builder(object):
 
         logger.info("buildSkeleton: " + kSceneItem.getPath() + " as: " +
                     buildName)
+        dccSceneItem = self.buildLocator(kSceneItem, buildName)
 
-        return None
+        return dccSceneItem
 
     # ========================
     # Attribute Build Methods
@@ -532,13 +566,37 @@ class Builder(object):
         logger.debug("building(" + str(phase) + "): " + kObject.getPath() +
                      " as: " + buildName + " type: " + kObject.getTypeName())
 
+        def isConstrainBetweenComponentIO(kConstraint):
+            constrainee = kConstraint.getConstrainee()
+            constrainer = kConstraint.getConstrainers()[0]
+
+            return (
+                (constrainee.getTypeName() == 'ComponentInput' and constrainer.getTypeName() == 'ComponentOutput')
+                or
+                (constrainee.getTypeName() == 'ComponentOutput' and constrainer.getTypeName() == 'ComponentInput')
+            )
+
+        def isConstrainPartOfComponentIO(kConstraint):
+            constrainee = kConstraint.getConstrainee()
+            constrainers = kConstraint.getConstrainers()
+
+            for c in constrainers:
+                if c.getTypeName() in ['ComponentOutput', 'ComponentInput']:
+                    return True
+
+            return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
+
         # Build Object
         if kObject.isTypeOf("Rig"):
             if phase == self._buildPhase_3DObjectsAttributes:
                 dccSceneItem = self.buildContainer(kObject, buildName)
 
             if phase == self._buildPhase_3DObjectsSkeleton:
+                dccSceneItem = self.buildCanvasContainer(kObject, buildName)
                 dccSceneItem = self.buildSkeletonContainer(kObject, buildName)
+
+            if phase == self._buildPhase_ConstraintsOperators:
+                dccSceneItem = self.buildConstraintContainer(kObject, buildName)
 
         elif kObject.isTypeOf("Layer"):
             if phase == self._buildPhase_3DObjectsAttributes:
@@ -615,6 +673,12 @@ class Builder(object):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildPoseConstraint(kObject, buildName)
 
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                if isConstrainBetweenComponentIO(kObject):
+                    print 'aaaaaaaaaaaaa'
+                elif isConstrainPartOfComponentIO(kObject):
+                    print 'bbbbbbbbbbb'
+
         elif kObject.isTypeOf("PositionConstraint"):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildPositionConstraint(kObject, buildName)
@@ -631,16 +695,20 @@ class Builder(object):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildCanvasOperator(kObject, buildName)
 
+        elif kObject.isTypeOf("ComponentInput"):
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                dccSceneItem = self.buildSkeleton(kObject, buildName)
+
+        elif kObject.isTypeOf("ComponentOutput"):
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                dccSceneItem = self.buildSkeleton(kObject, buildName)
+
         # Important Note: The order of these tests is important.
         # New classes should be added above the classes they are derrived from.
         # No new types should be added below SceneItem here.
         elif kObject.isTypeOf("SceneItem"):
             if phase == 0:
                 dccSceneItem = self.buildLocator(kObject, buildName)
-
-            if phase == self._buildPhase_3DObjectsSkeleton:
-                if kObject.isTypeOf('ComponentInput') or kObject.isTypeOf('ComponentOutput'):
-                    dccSceneItem = self.buildSkeleton(kObject, buildName)
 
         else:
             raise NotImplementedError(kObject.getName() +
@@ -725,6 +793,10 @@ class Builder(object):
 
             # build abstract skeleton
             self.__buildSceneItemList(objects3d,
+                                      self._buildPhase_3DObjectsSkeleton)
+
+            constraints = traverser.getItemsOfType('Constraint')
+            self.__buildSceneItemList(constraints,
                                       self._buildPhase_3DObjectsSkeleton)
 
             # connect all attributes

@@ -29,7 +29,6 @@ logger.setLevel(logging.INFO)
 
 
 class Builder(Builder):
-
     """Builder object for building Kraken objects in Maya."""
 
     def __init__(self):
@@ -87,9 +86,9 @@ class Builder(Builder):
                 pureJSON = metaData['guideData']
 
                 krakenRigDataAttr = dccSceneItem.addAttr('krakenRigData',
-                                                         niceName='krakenRigData',
-                                                         dataType="string",
-                                                         keyable=False)
+                                                     niceName='krakenRigData',
+                                                     dataType="string",
+                                                     keyable=False)
 
                 dccSceneItem.attr('krakenRigData').set(json.dumps(pureJSON, indent=2))
                 dccSceneItem.attr('krakenRigData').setLocked(True)
@@ -327,112 +326,6 @@ class Builder(Builder):
         self._registerSceneItemPair(kSceneItem, dccSceneItem)
 
         return dccSceneItem
-
-    def buildSkeleton(self, kSceneItem, buildName):
-        """Builds a fabric engine Characters extesion's skeleton object.
-
-        Args:
-            kSceneItem (Object): locator / null object to be built.
-            buildName (str): The name to use on the built object.
-
-        Returns:
-            object: Node that is created.
-
-        """
-
-        if not self._characterSkeleton:
-            return
-
-        # parentNode = self.getDCCSceneItem(kSceneItem.getParent())
-        canvasNode = self._characterSkeleton
-
-        ori = dt.Quaternion(kSceneItem.xfo.ori.v.x,
-                            kSceneItem.xfo.ori.v.y,
-                            kSceneItem.xfo.ori.v.z,
-                            kSceneItem.xfo.ori.w)
-
-        scl = dt.Vector(
-            kSceneItem.xfo.sc.x,
-            kSceneItem.xfo.sc.y,
-            kSceneItem.xfo.sc.z)
-
-        pos = dt.Vector(
-            kSceneItem.xfo.tr.x,
-            kSceneItem.xfo.tr.y,
-            kSceneItem.xfo.tr.z)
-
-        xfo = r"""{{
-                "ori" : {{
-                    "v" : {{
-                        "x" : {},
-                        "y" : {},
-                        "z" : {}
-                    }},
-                    "w" : {}
-                }},
-                "tr" : {{
-                    "x" : {},
-                    "y" : {},
-                    "z" : {}
-                }},
-                "sc" : {{
-                    "x" : {},
-                    "y" : {},
-                    "z" : {}
-                }}
-            }}""".format(ori.x, ori.y, ori.z, ori.w,
-                         pos.x, pos.y, pos.z,
-                         scl.x, scl.y, scl.z)
-
-        bone = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                         execPath="initializeSkeleton",
-                                         presetPath="Fabric.Exts.Characters.Bone.ComposeBone",
-                                         xPos="-60",
-                                         yPos="100")
-
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.name".format(bone),
-                                           type="String",
-                                           value="\"{}\"".format(buildName))
-
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.referencePose".format(bone),
-                                           type="Xfo",
-                                           value='{}'.format(xfo))
-
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.radius".format(bone),
-                                           type="Float32",
-                                           value='{}'.format(0.1))
-
-        addBone = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                            execPath="initializeSkeleton",
-                                            presetPath="Fabric.Exts.Characters.Skeleton.AddBone",
-                                            xPos="0",
-                                            yPos="100")
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.this".format(self._characterSkeletonLastNode),
-                               dstPortPath="{}.this".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.result".format(bone),
-                               dstPortPath="{}.bone".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.this".format(addBone),
-                               dstPortPath="{}.value".format(self._characterSkeletonDestNode))
-
-        self._characterSkeletonLastNode = addBone
-        # self._registerSceneItemPair(kSceneItem, dccSceneItem)
-
-        # return dccSceneItem
 
     # ========================
     # Attribute Build Methods
@@ -1291,96 +1184,6 @@ class Builder(Builder):
 
         return True
 
-    def buildSkeletonContainer(self, kSceneItem, buildName):
-
-        try:
-            print self._characterSkeleton
-        except AttributeError:
-            self.initializeCharacterSkeleton(kSceneItem, buildName)
-
-    def initializeCharacterSkeleton(self, kSceneItem, buildName):
-
-        buildName = '{}Skeleton'.format(buildName)
-
-        # Create Canvas Operator
-        canvasNode = pm.createNode('canvasNode', name=buildName)
-        self._registerSceneItemPair(kSceneItem, pm.PyNode(canvasNode))
-
-        # config = Config.getInstance()
-        # nameTemplate = config.getNameTemplate()
-
-        pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
-                                  execPath="",
-                                  extDep="Characters")
-
-        initializeSkeletonNode = pm.FabricCanvasAddGraph(mayaNode=canvasNode,
-                                                         execPath="",
-                                                         xPos="0",
-                                                         yPos="100",
-                                                         title="initializeSkeleton")
-
-        outputPort = pm.FabricCanvasAddPort(mayaNode=canvasNode,
-                                            execPath=initializeSkeletonNode,
-                                            desiredPortName="skeleton",
-                                            portType="Out",
-                                            typeSpec="Skeleton",
-                                            connectToPortPath="")
-
-        cacheNode = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                              execPath="initializeSkeleton",
-                                              presetPath="Fabric.Core.Data.Cache",
-                                              xPos="100",
-                                              yPos="20")
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.value".format(cacheNode),
-                               dstPortPath="{}".format(outputPort))
-
-        skeletonNode = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                                 execPath="initializeSkeleton",
-                                                 presetPath="Fabric.Exts.Characters.Skeleton.Skeleton",
-                                                 xPos="-120",
-                                                 yPos="100")
-
-        rootBone = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                             execPath="initializeSkeleton",
-                                             presetPath="Fabric.Exts.Characters.Bone.ComposeBone",
-                                             xPos="-60",
-                                             yPos="100")
-
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.name".format(rootBone),
-                                           type="String",
-                                           value="\"root\"")
-
-        addBone = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                            execPath="initializeSkeleton",
-                                            presetPath="Fabric.Exts.Characters.Skeleton.AddBone",
-                                            xPos="0",
-                                            yPos="100")
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.result".format(skeletonNode),
-                               dstPortPath="{}.this".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.result".format(rootBone),
-                               dstPortPath="{}.bone".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.this".format(addBone),
-                               dstPortPath="{}.value".format(cacheNode))
-
-        self._characterSkeleton = canvasNode
-        self._characterSkeletonLastNode = addBone
-        self._characterSkeletonDestNode = cacheNode
-        # self._registerSceneItemPair(kOperator, pm.PyNode(canvasNode))
-
     # ==================
     # Parameter Methods
     # ==================
@@ -1419,6 +1222,7 @@ class Builder(Builder):
                 keyable=False,
                 channelBox=False)
 
+
         # Lock Scale
         if kSceneItem.testFlag("lockXScale") is True:
             pm.setAttr(
@@ -1440,6 +1244,7 @@ class Builder(Builder):
                 lock=True,
                 keyable=False,
                 channelBox=False)
+
 
         # Lock Translation
         if kSceneItem.testFlag("lockXTranslation") is True:
