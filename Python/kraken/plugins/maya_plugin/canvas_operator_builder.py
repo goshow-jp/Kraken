@@ -38,6 +38,8 @@ class CanvasOperator(object):
     def __init__(self, builder, kOperator, buildName, rigGraph, isKLBased=False):
         self.builder = builder
         self.isKLBased = isKLBased
+        self.rigGraph = rigGraph
+        self.rigGraph.setCurrentGroup(None)
 
         self.buildBase(kOperator, buildName, rigGraph)
         if self.isKLBased:
@@ -53,9 +55,10 @@ class CanvasOperator(object):
         # Create Canvas Operator
         # canvasNode = pm.createNode('canvasNode', name=buildName)
         # self._registerSceneItemPair(kOperator, pm.PyNode(canvasNode))
-        self.rigGraph = rigGraph
         self.canvasNode = self.rigGraph.nodeName
+        self.rigGraph.setCurrentGroup("Solvers")
         self.containerNodeName = self.rigGraph.createGraphNodeSI(kOperator, buildName)
+        self.rigGraph.setCurrentGroup(None)
         self.containerExec = self.rigGraph.getSubExec(self.containerNodeName)
 
         self.config = Config.getInstance()
@@ -156,6 +159,42 @@ class CanvasOperator(object):
     def buildPorts(self, kOperator, buildName):
         for i in xrange(self.getPortCount(kOperator)):
             self.forEachPort(kOperator, buildName, i)
+
+    def forEachPort(self, kOperator, buildName, index):
+
+        portName, portConnectionType, portDataType = self.getPortInformation(kOperator, index)
+
+        # add port
+        self.addPort(portConnectionType, kOperator, portName, portDataType)
+
+        # portType dependent process
+        if portDataType == 'EvalContext':
+            return
+        elif portDataType == 'Execute':
+            return
+        elif portDataType == 'DrawingHandle':
+            return
+        elif portDataType == 'InlineDebugShape':
+            return
+        elif portDataType == 'Execute' and portName == 'exec':
+            return
+
+        # special port
+        if portName == 'time':
+            pm.expression(o=self.canvasNode + '.time', s=self.canvasNode + '.time = time;')
+            return
+        if portName == 'frame':
+            pm.expression(o=self.canvasNode + '.frame', s=self.canvasNode + '.frame = frame;')
+            return
+
+        # Get the port's input from the DCC
+        connectionTargets = self.getConnectionTargets(kOperator, portName, portConnectionType, portDataType)
+        # Add the Canvas Port for each port.
+        if portConnectionType == 'In':
+            self.makeConnectInput(kOperator, buildName, portName, portConnectionType, portDataType, connectionTargets)
+
+        elif portConnectionType in ['IO', 'Out']:
+            self.makeConnectOutput(buildName, portName, portConnectionType, portDataType, connectionTargets)
 
     def setOperatorCode(self, kOperator, buildName):
         if self.isKLBased is True:
@@ -483,38 +522,3 @@ class CanvasOperator(object):
         else:
             raise NotImplementedError("Kraken Canvas Operator cannot set object [%s] outputs with Python built-in types [%s] directly!" % (src, opObject.__class__.__name__))
 
-    def forEachPort(self, kOperator, buildName, index):
-
-        portName, portConnectionType, portDataType = self.getPortInformation(kOperator, index)
-
-        # add port
-        self.addPort(portConnectionType, kOperator, portName, portDataType)
-
-        # portType dependent process
-        if portDataType == 'EvalContext':
-            return
-        elif portDataType == 'Execute':
-            return
-        elif portDataType == 'DrawingHandle':
-            return
-        elif portDataType == 'InlineDebugShape':
-            return
-        elif portDataType == 'Execute' and portName == 'exec':
-            return
-
-        # special port
-        if portName == 'time':
-            pm.expression(o=self.canvasNode + '.time', s=self.canvasNode + '.time = time;')
-            return
-        if portName == 'frame':
-            pm.expression(o=self.canvasNode + '.frame', s=self.canvasNode + '.frame = frame;')
-            return
-
-        # Get the port's input from the DCC
-        connectionTargets = self.getConnectionTargets(kOperator, portName, portConnectionType, portDataType)
-        # Add the Canvas Port for each port.
-        if portConnectionType == 'In':
-            self.makeConnectInput(kOperator, buildName, portName, portConnectionType, portDataType, connectionTargets)
-
-        elif portConnectionType in ['IO', 'Out']:
-            self.makeConnectOutput(buildName, portName, portConnectionType, portDataType, connectionTargets)

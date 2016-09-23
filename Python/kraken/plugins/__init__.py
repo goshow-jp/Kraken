@@ -17,13 +17,14 @@ def getBuilder():
     """
 
     dccBuilder = None
+    builderName = "monolithic_builder"
 
     for eachPlugin in __all__:
         mod = __import__("kraken.plugins." + eachPlugin, fromlist=['dccTest'])
         reload(mod)
 
         if mod.dccTest() is True:
-            loaded_mod = __import__("kraken.plugins." + eachPlugin + ".builder", fromlist=['builder'])
+            loaded_mod = __import__("kraken.plugins." + eachPlugin + "." + builderName, fromlist=['builder'])
             reload(loaded_mod)
             loaded_class = getattr(loaded_mod, 'Builder')
 

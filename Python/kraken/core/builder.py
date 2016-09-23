@@ -253,56 +253,6 @@ class Builder(object):
 
         return None
 
-    def buildCanvasContainer(self, kSceneItem, buildName):
-        """Builds a locator / null object.
-
-        Args:
-            kSceneItem (object): kSceneItem that represents a locator / null to be built.
-            buildName (string): The name to use on the built object.
-
-        Returns:
-            object: DCC Scene Item that is created.
-
-        """
-
-        logger.info("buildCanvasContainer: " + kSceneItem.getPath() + " as: " +
-                    buildName)
-
-        return None
-
-    def buildSkeletonContainer(self, kSceneItem, buildName):
-        """Builds a locator / null object.
-
-        Args:
-            kSceneItem (object): kSceneItem that represents a locator / null to be built.
-            buildName (string): The name to use on the built object.
-
-        Returns:
-            object: DCC Scene Item that is created.
-
-        """
-
-        logger.info("buildSkeletonContainer: " + kSceneItem.getPath() + " as: " +
-                    buildName)
-        return None
-
-    def buildConstraintContainer(self, kSceneItem, buildName):
-        """Builds a locator / null object.
-
-        Args:
-            kSceneItem (object): kSceneItem that represents a locator / null to be built.
-            buildName (string): The name to use on the built object.
-
-        Returns:
-            object: DCC Scene Item that is created.
-
-        """
-
-        logger.info("buildConstraintContainer: " + kSceneItem.getPath() + " as: " +
-                    buildName)
-
-        return None
-
     def buildSkeleton(self, kSceneItem, buildName):
         """Builds a locator / null object.
 
@@ -607,13 +557,6 @@ class Builder(object):
         if kObject.isTypeOf("Rig"):
             if phase == self._buildPhase_3DObjectsAttributes:
                 dccSceneItem = self.buildContainer(kObject, buildName)
-
-            if phase == self._buildPhase_3DObjectsSkeleton:
-                dccSceneItem = self.buildCanvasContainer(kObject, buildName)
-                dccSceneItem = self.buildSkeletonContainer(kObject, buildName)
-
-            if phase == self._buildPhase_ConstraintsOperators:
-                dccSceneItem = self.buildConstraintContainer(kObject, buildName)
 
         elif kObject.isTypeOf("Layer"):
             if phase == self._buildPhase_3DObjectsAttributes:

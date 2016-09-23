@@ -35,9 +35,9 @@ class GraphManager(object):
         self.__dfgHost = client.getDFGHost()
         self.__dfgBinding = self.__dfgHost.createBindingToNewGraph()
         self.__dfgExec = self.__dfgBinding.getExec()
-        self.__dfgArgs = {}
-        self.__dfgNodes = {}
-        self.__dfgNodeAndPortMap = {}
+        self.__dfgArgs = defaultdict(dict)
+        self.__dfgNodes = defaultdict(dict)
+        self.__dfgNodeAndPortMap = defaultdict(dict)
         self.__dfgConnections = defaultdict(dict)
         self.__dfgGroups = {}
         self.__dfgGroupNames = []
@@ -53,11 +53,14 @@ class GraphManager(object):
 
         dfgExec.setTitle(title)
 
-    def getUniqueTitle(self, path, title):
+    def getUniqueTitle(self, path, title, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         titleSuffix = 1
         uniqueTitle = title
         lookup = '%s|%s' % (path, uniqueTitle)
-        while self.__dfgNodes.has_key(lookup):
+        while self.__dfgNodes[dfgExec].has_key(lookup):
             titleSuffix = titleSuffix + 1
             uniqueTitle = '%s_%d' % (title, titleSuffix)
             lookup = '%s|%s' % (path, uniqueTitle)
@@ -70,48 +73,69 @@ class GraphManager(object):
 
         dfgExec.addExtDep(extDep)
 
-    def hasNode(self, path, title=None):
+    def hasNode(self, path, title=None, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         lookup = path
         if title is not None:
             lookup = "%s|%s" % (path, title)
 
-        return lookup in self.__dfgNodes
+        return lookup in self.__dfgNodes[dfgExec]
 
-    def hasNodeSI(self, kSceneItem, title=None):
-        return self.hasNode(kSceneItem.getPath(), title=title)
+    def hasNodeSI(self, kSceneItem, title=None, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
 
-    def getNode(self, path, title=None):
+        return self.hasNode(kSceneItem.getPath(), title=title, dfgExec=dfgExec)
+
+    def getNode(self, path, title=None, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         lookup = path
         if title is not None:
             lookup = "%s|%s" % (path, title)
 
-        return self.__dfgNodes.get(lookup, None)
+        return self.__dfgNodes[dfgExec].get(lookup, None)
 
-    def getNodeSI(self, kSceneItem, title=None):
-        return self.getNode(kSceneItem.getPath(), title=title)
+    def getNodeSI(self, kSceneItem, title=None, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
 
-    def getNodeAndPort(self, path, asInput=True):
-        if path not in self.__dfgNodeAndPortMap:
+        return self.getNode(kSceneItem.getPath(), title=title, dfgExec=dfgExec)
+
+    def getNodeAndPort(self, path, asInput=True, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        if path not in self.__dfgNodeAndPortMap[dfgExec]:
             return None
 
-        nodeAndPort = self.__dfgNodeAndPortMap[path]
+        nodeAndPort = self.__dfgNodeAndPortMap[dfgExec][path]
         if asInput:
             return nodeAndPort[0]
 
         return nodeAndPort[1]
 
-    def getNodeAndPortSI(self, kSceneItem, asInput=True):
-        return self.getNodeAndPort(kSceneItem.getPath(), asInput=asInput)
+    def getNodeAndPortSI(self, kSceneItem, asInput=True, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
 
-    def setNodeAndPort(self, path, node, port, asInput=False):
-        nodeAndPort = self.__dfgNodeAndPortMap.get(path, [(node, port), (node, port)])
+        return self.getNodeAndPort(kSceneItem.getPath(), asInput=asInput, dfgExec=dfgExec)
+
+    def setNodeAndPort(self, path, node, port, asInput=False, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        nodeAndPort = self.__dfgNodeAndPortMap[dfgExec].get(path, [(node, port), (node, port)])
 
         if asInput:
             nodeAndPort[0] = (node, port)
         else:
             nodeAndPort[1] = (node, port)
 
-        self.__dfgNodeAndPortMap[path] = nodeAndPort
+        self.__dfgNodeAndPortMap[dfgExec][path] = nodeAndPort
 
     def setNodeAndPortSI(self, kSceneItem, node, port, asInput=False):
         self.setNodeAndPort(kSceneItem.getPath(), node, port, asInput=asInput)
@@ -122,15 +146,18 @@ class GraphManager(object):
     def getSubExec(self, node):
         return self.__dfgExec.getSubExec(node)
 
-    def hasArgument(self, name):
-        return self.__dfgArgs.has_key(name)
-
-    def getOrCreateArgument(self, name, dataType=None, defaultValue=None, portType="In", dfgExec=None):
-        if self.__dfgArgs.has_key(name):
-            return self.__dfgArgs[name]
-
+    def hasArgument(self, name, dfgExec=None):
         if not dfgExec:
             dfgExec = self.__dfgExec
+
+        return self.__dfgArgs[dfgExec].has_key(name)
+
+    def getOrCreateArgument(self, name, dataType=None, defaultValue=None, portType="In", dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        if self.__dfgArgs[dfgExec].has_key(name):
+            return self.__dfgArgs[dfgExec][name]
 
         client = ks.getCoreClient()
         dfgPortType = client.DFG.PortTypes.In
@@ -139,21 +166,21 @@ class GraphManager(object):
         elif portType.lower() == 'io':
             dfgPortType = client.DFG.PortTypes.IO
 
-        self.__dfgArgs[name] = dfgExec.addExecPort(name, dfgPortType)
+        self.__dfgArgs[dfgExec][name] = dfgExec.addExecPort(name, dfgPortType)
         if dataType:
-            self.__dfgBinding.setArgValue(self.__dfgArgs[name], ks.rtVal(dataType, defaultValue))
+            self.__dfgBinding.setArgValue(self.__dfgArgs[dfgExec][name], ks.rtVal(dataType, defaultValue))
 
-        return self.__dfgArgs[name]
+        return self.__dfgArgs[dfgExec][name]
 
     def removeArgument(self, name, dfgExec=None):
-        if name not in self.__dfgArgs:
-            return False
-
         if not dfgExec:
             dfgExec = self.__dfgExec
 
-        dfgExec.removeExecPort(self.__dfgArgs[name])
-        del self.__dfgArgs[name]
+        if name not in self.__dfgArgs[dfgExec]:
+            return False
+
+        dfgExec.removeExecPort(self.__dfgArgs[dfgExec][name])
+        del self.__dfgArgs[dfgExec][name]
 
         return True
 
@@ -165,11 +192,11 @@ class GraphManager(object):
         if title is not None:
             lookup = "%s|%s" % (path, title)
 
-        if lookup in self.__dfgNodes:
+        if lookup in self.__dfgNodes[dfgExec]:
             raise Exception("Node for %s already exists." % lookup)
 
         node = dfgExec.addInstFromPreset(preset)
-        self.__dfgNodes[lookup] = node
+        self.__dfgNodes[dfgExec][lookup] = node
         self.setNodeMetaDataFromDict(lookup, metaData, dfgExec)
         self.__addNodeToGroup(node)
 
@@ -192,11 +219,11 @@ class GraphManager(object):
         if title is not None:
             lookup = "%s|%s" % (path, title)
 
-        if lookup in self.__dfgNodes:
+        if lookup in self.__dfgNodes[dfgExec]:
             raise Exception("Node for %s already exists." % lookup)
 
         node = dfgExec.addInstWithNewFunc(title)
-        self.__dfgNodes[lookup] = node
+        self.__dfgNodes[dfgExec][lookup] = node
         self.setNodeMetaDataFromDict(lookup, metaData, dfgExec)
         self.__addNodeToGroup(node)
 
@@ -208,6 +235,30 @@ class GraphManager(object):
 
         return self.createFunctionNode(kSceneItem.getPath(), title, dfgExec=dfgExec, **metaData)
 
+    def createGraphNode(self, path, title, dfgExec=None, **metaData):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        lookup = path
+        if title is not None:
+            lookup = "%s|%s" % (path, title)
+
+        if lookup in self.__dfgNodes[dfgExec]:
+            raise Exception("Node for %s already exists." % lookup)
+
+        node = dfgExec.addInstWithNewGraph(str(title))
+        self.__dfgNodes[dfgExec][lookup] = node
+        self.setNodeMetaDataFromDict(lookup, metaData)
+        self.__addNodeToGroup(node)
+
+        return node
+
+    def createGraphNodeSI(self, kSceneItem, title, dfgExec=None, **metaData):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        return self.createGraphNode(kSceneItem.getPath(), title, dfgExec=dfgExec, **metaData)
+
     def createVariableNode(self, path, title, dataType, extension="", dfgExec=None, **metaData):
         if not dfgExec:
             dfgExec = self.__dfgExec
@@ -216,11 +267,11 @@ class GraphManager(object):
         if title is not None:
             lookup = "%s|%s" % (path, title)
 
-        if lookup in self.__dfgNodes:
+        if lookup in self.__dfgNodes[dfgExec]:
             raise Exception("Node for %s already exists." % lookup)
 
         node = dfgExec.addVar(title, dataType, extension)
-        self.__dfgNodes[lookup] = node
+        self.__dfgNodes[dfgExec][lookup] = node
         self.setNodeMetaDataFromDict(lookup, metaData, dfgExec)
         self.__addNodeToGroup(node)
 
@@ -240,12 +291,12 @@ class GraphManager(object):
         if title is not None:
             lookup = "%s|%s" % (path, title)
 
-        if lookup not in self.__dfgNodes:
+        if lookup not in self.__dfgNodes[dfgExec]:
             raise Exception("Node for %s does not exist." % lookup)
 
-        node = self.__dfgNodes[lookup]
+        node = self.__dfgNodes[dfgExec][lookup]
         dfgExec.removeNode(node)
-        del self.__dfgNodes[lookup]
+        del self.__dfgNodes[dfgExec][lookup]
 
         # clean up groups
         for group in self.__dfgGroups:
@@ -289,14 +340,14 @@ class GraphManager(object):
         if typeA != typeB and typeA != None and typeB != None:
             if typeA == 'Xfo' and typeB == 'Mat44':
                 preset = "Fabric.Exts.Math.Xfo.ToMat44"
-                title = self.getUniqueTitle(nodeA, 'Convert')
+                title = self.getUniqueTitle(nodeA, 'Convert', dfgExec)
                 convertNode = self.createNodeFromPreset(nodeA, preset, title=title, dfgExec=dfgExec)
                 self.connectNodes(nodeA, portA, convertNode, "this", dfgExec)
                 nodeA = convertNode
                 portA = "result"
             elif typeA == 'Mat44' and typeB == 'Xfo':
                 preset = "Fabric.Exts.Math.Xfo.SetFromMat44"
-                title = self.getUniqueTitle(nodeA, 'Convert')
+                title = self.getUniqueTitle(nodeA, 'Convert', dfgExec)
                 convertNode = self.createNodeFromPreset(nodeA, preset, title=title, dfgExec=dfgExec)
                 self.connectNodes(nodeA, portA, convertNode, "m", dfgExec)
                 nodeA = convertNode
@@ -322,10 +373,10 @@ class GraphManager(object):
         if not dfgExec:
             dfgExec = self.__dfgExec
 
-        if self.__dfgArgs.has_key(argA):
+        if self.__dfgArgs[dfgExec].has_key(argA):
             dfgExec.connectTo(argA, argB+'.'+argC)
             return True
-        elif self.__dfgArgs.has_key(argC):
+        elif self.__dfgArgs[dfgExec].has_key(argC):
             dfgExec.connectTo(argA+'.'+argB, argC)
             return True
 
@@ -394,9 +445,9 @@ class GraphManager(object):
         lookup = path
         if not title is None:
             lookup = "%s|%s" % (path, title)
-        if not self.__dfgNodes.has_key(lookup):
+        if not self.__dfgNodes[dfgExec].has_key(lookup):
             return defaultValue
-        node = self.__dfgNodes[lookup]
+        node = self.__dfgNodes[dfgExec][lookup]
 
         return dfgExec.getNodeMetadata(node, key)
 
@@ -414,8 +465,8 @@ class GraphManager(object):
         node = path
         if title is not None:
             lookup = "%s|%s" % (path, title)
-        if lookup in self.__dfgNodes:
-            node = self.__dfgNodes[lookup]
+        if lookup in self.__dfgNodes[dfgExec]:
+            node = self.__dfgNodes[dfgExec][lookup]
         dfgExec.setNodeMetadata(node, key, str(value))
         if key == 'uiComment':
             dfgExec.setNodeMetadata(node, 'uiCommentExpanded', 'true')
@@ -472,7 +523,7 @@ class GraphManager(object):
 
         portPath = "%s.%s" % (node, port)
 
-        subExec = self.__dfgExec.getSubExec(node)
+        subExec = dfgExec.getSubExec(node)
         dataType = subExec.getExecPortTypeSpec(port)
 
         rtVal = value
@@ -519,10 +570,16 @@ class GraphManager(object):
             return
         self.__dfgGroups[self.__dfgCurrentGroup].append(node)
 
-    def getAllNodeNames(self):
-        return self.__dfgNodes.values()
+    def getAllNodeNames(self, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
 
-    def getNodeConnections(self, nodeName):
+        return self.__dfgNodes[dfgExec].values()
+
+    def getNodeConnections(self, nodeName, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         keys = {}
         result = []
         node = self.__dfgConnections[dfgExec].get(nodeName, {})
@@ -537,7 +594,10 @@ class GraphManager(object):
 
         return result
 
-    def getAllNodeConnections(self):
+    def getAllNodeConnections(self, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         keys = {}
         result = {}
         for nodeName in self.__dfgConnections[dfgExec]:
@@ -563,12 +623,15 @@ class GraphManager(object):
         if nodeType == 3: # var
             return 1
         elif nodeType == 0: # inst
-            subExec = self.getSubExec(node)
+            subExec = dfgExec.getSubExec(node)
             return subExec.getExecPortCount()
 
         return 0
 
-    def hasInputConnections(self, node):
+    def hasInputConnections(self, node, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         for nodeName in self.__dfgConnections[dfgExec]:
             ports = self.__dfgConnections[dfgExec][nodeName]
             for portName in ports:
@@ -579,7 +642,10 @@ class GraphManager(object):
 
         return False
 
-    def hasOutputConnections(self, node):
+    def hasOutputConnections(self, node, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
         ports = self.__dfgConnections[dfgExec].get(node, {})
         for port in ports:
             if len(ports) > 0:
@@ -595,7 +661,7 @@ class GraphManager(object):
         if nodeType == 3: # var
             return 0
         elif nodeType == 0: # inst
-            subExec = self.getSubExec(node)
+            subExec = dfgExec.getSubExec(node)
             for i in range(subExec.getExecPortCount()):
                 portName = subExec.getExecPortName(i)
                 if portName == port:
@@ -635,7 +701,7 @@ class GraphManager(object):
             if nodeType == 3: # var
                 result[n]['value'] = 0
             elif nodeType == 0: # inst
-                subExec = self.getSubExec(n)
+                subExec = dfgExec.getSubExec(n)
                 for i in range(subExec.getExecPortCount()):
                     port = subExec.getExecPortName(i)
                     result[n][port] = i

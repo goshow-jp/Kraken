@@ -1,0 +1,36 @@
+require Kraken;
+
+object KrakenInputCache {
+  Mat44 cache[];
+  Boolean isCached;
+};
+
+
+function KrakenInputCache() {
+  this.isCached = false;
+}
+
+
+function KrakenInputCache.update!( in Mat44[] input, out Mat44[] output, out Boolean isCached ){
+
+  if( this.cache.size() != input.size() ){
+    this.cache.resize( input.size() );
+  }
+
+  output.resize( input.size() );
+
+  this.isCached = true;
+  for( Index i; i < input.size(); i++ ){
+
+    if( this.cache[i] != input[i] ){
+      this.isCached = false;
+      this.cache[i] = input[i];
+    }
+
+    //output[i] = this.cache[i];
+  }
+  output = this.cache;
+
+  isCached = this.isCached;
+
+}

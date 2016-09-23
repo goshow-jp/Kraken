@@ -26,6 +26,8 @@
     "Constraints/KrakenOrientationConstraint.kl",
     "Constraints/KrakenScaleConstraint.kl",
 
-    "Shapes/KrakenCurveDict.kl"
+    "Shapes/KrakenCurveDict.kl",
+
+    "TaskManager/CacheManager.kl"
   ]
 }

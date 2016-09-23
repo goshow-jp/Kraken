@@ -9,6 +9,7 @@ Builder -- Component representation.
 import logging
 
 from kraken.log import getLogger
+# from kraken.core.kraken_system import ks
 from kraken.core.objects.object_3d import Object3D
 
 import pymel.core as pm
@@ -20,8 +21,11 @@ logger.setLevel(logging.INFO)
 
 class AbstractSkeleton(Object3D):
 
-    def __init__(self, kSceneItem, buildName, canvasNode):
+    def __init__(self, buildName, rigGraph):
         super(AbstractSkeleton, self).__init__(buildName, None)
+
+        self.rigGraph = rigGraph
+        canvasNode = self.rigGraph.nodeName
 
         self.canvasNode = canvasNode
         self._boneCount = 0
@@ -32,71 +36,42 @@ class AbstractSkeleton(Object3D):
                                   execPath="",
                                   extDep="Characters")
 
+        pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
+                                  execPath="",
+                                  extDep="Kraken.KrakenForCanvas")
+
         initializeSkeletonNode = pm.FabricCanvasAddGraph(mayaNode=canvasNode,
                                                          execPath="",
                                                          xPos="0",
                                                          yPos="100",
                                                          title="initializeSkeleton")
 
-        outputPort = pm.FabricCanvasAddPort(mayaNode=canvasNode,
-                                            execPath=initializeSkeletonNode,
-                                            desiredPortName="skeleton",
-                                            portType="Out",
-                                            typeSpec="Skeleton",
-                                            connectToPortPath="")
+        self.containerNodeName = initializeSkeletonNode
+        self.containerNodeExec = self.rigGraph.getSubExec(self.containerNodeName)
+        self.rigGraph.addExtDep("KrakenForCanvas", dfgExec=self.containerNodeExec)
 
-        cacheNode = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                              execPath="initializeSkeleton",
-                                              presetPath="Fabric.Core.Data.Cache",
-                                              xPos="100",
-                                              yPos="20")
+        path = self.containerNodeName + "emptyTransformArray"
+        emptyTransformArray = self.rigGraph.createNodeFromPreset(path,
+                                                                 "Fabric.Core.Array.EmptyArray",
+                                                                 dfgExec=self.containerNodeExec)
 
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.value".format(cacheNode),
-                               dstPortPath="{}".format(outputPort))
+        addBone = self.rigGraph.createNodeFromPreset(buildName + "push",
+                                                     "Fabric.Core.Array.Push",
+                                                     dfgExec=self.containerNodeExec)
 
-        skeletonNode = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                                 execPath="initializeSkeleton",
-                                                 presetPath="Fabric.Exts.Characters.Skeleton.Skeleton",
-                                                 xPos="-120",
-                                                 yPos="100")
+        self.rigGraph.connectNodes(emptyTransformArray, "output", addBone, "array", dfgExec=self.containerNodeExec)
 
-        rootBone = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                             execPath="initializeSkeleton",
-                                             presetPath="Fabric.Exts.Characters.Bone.ComposeBone",
-                                             xPos="-60",
-                                             yPos="100")
+        path = self.containerNodeName + "skeletonVariable"
+        self.variableNode = self.rigGraph.createVariableNode(path,
+                                                             "transforms",
+                                                             "KrakenTransform[]",
+                                                             extension="KrakenForCanvas",
+                                                             dfgExec=self.containerNodeExec)
 
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.name".format(rootBone),
-                                           type="String",
-                                           value="\"root\"")
-
-        addBone = pm.FabricCanvasInstPreset(mayaNode=canvasNode,
-                                            execPath="initializeSkeleton",
-                                            presetPath="Fabric.Exts.Characters.Skeleton.AddBone",
-                                            xPos="0",
-                                            yPos="100")
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.result".format(skeletonNode),
-                               dstPortPath="{}.this".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.result".format(rootBone),
-                               dstPortPath="{}.bone".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.this".format(addBone),
-                               dstPortPath="{}.value".format(cacheNode))
+        self.rigGraph.connectNodes(addBone, "array", self.variableNode, "value", dfgExec=self.containerNodeExec)
 
         self.setLastBoneNode(addBone)
-        self.skeletonDestNode = cacheNode
+        # self.skeletonDestNode = cacheNode
 
     def getNode(self):
         return self.canvasNode
@@ -106,56 +81,41 @@ class AbstractSkeleton(Object3D):
 
     def addBone(self, abstractBone):
 
+        def _setPortVal(node, key, val):
+            self.rigGraph.setPortDefaultValue(node, key, val, dfgExec=self.containerNodeExec)
+
         # composeBone node
-        boneNode = pm.FabricCanvasInstPreset(mayaNode=self.canvasNode,
-                                             execPath="initializeSkeleton",
-                                             presetPath="Fabric.Exts.Characters.Bone.ComposeBone",
-                                             xPos="-60",
-                                             yPos="100")
+        boneNode = self.rigGraph.createNodeFromPresetSI(abstractBone,
+                                                        "Kraken.KrakenForCanvas.Constructors.KrakenTransform",
+                                                        abstractBone.buildName,
+                                                        dfgExec=self.containerNodeExec)
 
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=self.canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.name".format(boneNode),
-                                           type="String",
-                                           value="\"{}\"".format(abstractBone.buildName))
+        _setPortVal(boneNode, "name", abstractBone.buildName)
+        _setPortVal(boneNode, "buildName", abstractBone.buildName)
+        _setPortVal(boneNode, "path", abstractBone.getPath())
 
+        addBone = self.rigGraph.createNodeFromPreset(abstractBone.buildName + "push",
+                                                     "Fabric.Core.Array.Push",
+                                                     dfgExec=self.containerNodeExec)
+
+        self.rigGraph.connectNodes(boneNode, "result", addBone, "element", dfgExec=self.containerNodeExec)
+        self.rigGraph.connectNodes(self.lastBoneNode, "array", addBone, "array", dfgExec=self.containerNodeExec)
+        self.rigGraph.connectNodes(addBone, "array", self.variableNode, "value", dfgExec=self.containerNodeExec)
+
+        '''
         pm.FabricCanvasSetPortDefaultValue(mayaNode=self.canvasNode,
                                            execPath="initializeSkeleton",
                                            portPath="{}.referencePose".format(boneNode),
                                            type="Xfo",
                                            value='{}'.format(abstractBone.getXfoAsJson()))
 
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=self.canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.radius".format(boneNode),
-                                           type="Float32",
-                                           value='{}'.format(0.1))
-
-        # addBone node, appending to skeleton
-        addBone = pm.FabricCanvasInstPreset(mayaNode=self.canvasNode,
-                                            execPath="initializeSkeleton",
-                                            presetPath="Fabric.Exts.Characters.Skeleton.AddBone",
-                                            xPos="0",
-                                            yPos="100")
-
-        pm.FabricCanvasConnect(mayaNode=self.canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.this".format(self.lastBoneNode),
-                               dstPortPath="{}.this".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=self.canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.result".format(boneNode),
-                               dstPortPath="{}.bone".format(addBone))
-
-        pm.FabricCanvasConnect(mayaNode=self.canvasNode,
-                               execPath="initializeSkeleton",
-                               srcPortPath="{}.this".format(addBone),
-                               dstPortPath="{}.value".format(self.skeletonDestNode))
+        '''
 
         abstractBone.setBoneNode(boneNode)
         abstractBone.setAddBoneNode(addBone)
+        abstractBone.setBoneIndex(self._boneCount)
         self.setLastBoneNode(addBone)
+        self._boneCount += 1
 
 
 class AbstractBone(Object3D):
@@ -166,10 +126,12 @@ class AbstractBone(Object3D):
         self.canvasNode = skeleton.getNode()
         self.buildName = buildName
 
-
         self.xfo = kSceneItem.xfo
 
         skeleton.addBone(self)
+
+    def setBoneIndex(self, id):
+        self._index = id
 
     ###################################
     # implement Maya object's behaviour

@@ -870,13 +870,11 @@ class Builder(Builder):
         op = CanvasOperator(self, kOperator, buildName, self.rigGraph, isKLBased)
         return op
 
-    def buildSkeletonContainer(self, kSceneItem, buildName):
+    def buildSkeletonContainer(self, buildName):
 
-        self._characterSkeleton = AbstractSkeleton(kSceneItem, buildName, self.rigGraph.nodeName)
+        self._characterSkeleton = AbstractSkeleton(buildName, self.rigGraph)
 
-    def buildCanvasContainer(self, kSceneItem, buildName):
-
-        buildName = '{}Canvas'.format(buildName)
+    def buildCanvasContainer(self, buildName):
 
         # Create Canvas Operator
 
@@ -904,10 +902,8 @@ class Builder(Builder):
                                               typeSpec="Float32",
                                               connectToPortPath="")
 
-        self._registerSceneItemPair(kSceneItem, pm.PyNode(self.rigGraph.nodeName))
-        # self._registerSceneItemPair(kOperator, pm.PyNode(canvasNode))
 
-    def buildConstraintContainer(self, kSceneItem, buildName):
+    def buildConstraintContainer(self, buildName):
 
         self.constraintContainer = self.rigGraph.createGraphNode("", "Constraints")
 
@@ -1157,6 +1153,35 @@ class Builder(Builder):
 
         """
 
+        self.__rigTitle = self.getConfig().getMetaData('RigName', 'Rig')
+        self.__useRigConstants = self.getConfig().getMetaData('UseRigConstants', False)
+        self.__profilingFrames = self.getConfig().getMetaData('ProfilingFrames', 0)
+        self.__profilingLogFile = self.getConfig().getMetaData('ProfilingLogFile', None)
+        self.__debugMode = False
+        self.__names = {}
+        self.__pathToName = {}
+        self.__klExtensions = []
+        self.__klMembers = {'members': {}, 'lookup': {}}
+        self.__klObjects = []
+        self.__klAttributes = []
+        self.__klConstraints = []
+        self.__klSolvers = []
+        self.__klEvalID = {}
+        self.__klCanvasOps = []
+        self.__klConstants = {}
+        self.__klExtExecuted = False
+        self.__klArgs = {'members': {}, 'lookup': {}}
+        self.__klPreCode = []
+        self.__krkItems = {}
+        self.__krkAttributes = {}
+        self.__krkDeformers = []
+        self.__krkVisitedObjects = []
+        self.__krkShapes = []
+
+        self.buildCanvasContainer("{}Canvas".format(self.__rigTitle))
+        self.buildSkeletonContainer("{}Skeleton".format(self.__rigTitle))
+        self.buildConstraintContainer("{}Constraints".format(self.__rigTitle))
+
         return True
 
     def _postBuild(self, kSceneItem):
@@ -1172,5 +1197,6 @@ class Builder(Builder):
         """
 
         super(Builder, self)._postBuild(kSceneItem)
+        self.rigGraph.implodeNodesByGroup()
 
         return True

@@ -38,18 +38,8 @@ class MayaGraphManager(GraphManager):
         dfgexec = dfgbinding.getExec()
 
         self._GraphManager__dfgHost = client.getDFGHost()
-        # self.__dfgBinding = self.__dfgHost.createBindingToNewGraph()
-        # self.__dfgExec = self.__dfgBinding.getExec()
         self._GraphManager__dfgBinding = dfgbinding
         self._GraphManager__dfgExec = dfgexec
-        self._GraphManager__dfgArgs = {}
-        self._GraphManager__dfgNodes = {}
-        self._GraphManager__dfgNodeAndPortMap = {}
-        self._GraphManager__dfgConnections = defaultdict(dict)
-        self._GraphManager__dfgGroups = {}
-        self._GraphManager__dfgGroupNames = []
-        self._GraphManager__dfgCurrentGroup = None
-
         self.__nodeName = canvasNode
 
     @property
@@ -60,21 +50,3 @@ class MayaGraphManager(GraphManager):
         if(not self._GraphManager__dfgCurrentGroup):
             return
         self._GraphManager__dfgGroups[self._GraphManager__dfgCurrentGroup].append(node)
-
-    def createGraphNode(self, path, title, **metaData):
-        lookup = path
-        if title is not None:
-            lookup = "%s|%s" % (path, title)
-
-        if lookup in self._GraphManager__dfgNodes:
-            raise Exception("Node for %s already exists." % lookup)
-
-        node = self._GraphManager__dfgExec.addInstWithNewGraph(str(title))
-        self._GraphManager__dfgNodes[lookup] = node
-        self.setNodeMetaDataFromDict(lookup, metaData)
-        self._GraphManager__addNodeToGroup(node)
-
-        return node
-
-    def createGraphNodeSI(self, kSceneItem, title, **metaData):
-        return self.createGraphNode(kSceneItem.getPath(), title, **metaData)
