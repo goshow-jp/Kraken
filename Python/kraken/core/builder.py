@@ -533,26 +533,6 @@ class Builder(object):
         logger.debug("building(" + str(phase) + "): " + kObject.getPath() +
                      " as: " + buildName + " type: " + kObject.getTypeName())
 
-        def isConstrainBetweenComponentIO(kConstraint):
-            constrainee = kConstraint.getConstrainee()
-            constrainer = kConstraint.getConstrainers()[0]
-
-            return (
-                (constrainee.getTypeName() == 'ComponentInput' and constrainer.getTypeName() == 'ComponentOutput')
-                or
-                (constrainee.getTypeName() == 'ComponentOutput' and constrainer.getTypeName() == 'ComponentInput')
-            )
-
-        def isConstrainPartOfComponentIO(kConstraint):
-            constrainee = kConstraint.getConstrainee()
-            constrainers = kConstraint.getConstrainers()
-
-            for c in constrainers:
-                if c.getTypeName() in ['ComponentOutput', 'ComponentInput']:
-                    return True
-
-            return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
-
         # Build Object
         if kObject.isTypeOf("Rig"):
             if phase == self._buildPhase_3DObjectsAttributes:
@@ -633,11 +613,8 @@ class Builder(object):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildPoseConstraint(kObject, buildName)
 
-            if phase == self._buildPhase_3DObjectsSkeleton:
-                if isConstrainBetweenComponentIO(kObject):
-                    print 'aaaaaaaaaaaaa'
-                elif isConstrainPartOfComponentIO(kObject):
-                    print 'bbbbbbbbbbb'
+            # if phase == self._buildPhase_3DObjectsSkeleton:
+            #     dccSceneItem = self.buildPoseConstraint(kObject, buildName)
 
         elif kObject.isTypeOf("PositionConstraint"):
             if phase == self._buildPhase_ConstraintsOperators:
