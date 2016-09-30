@@ -16,7 +16,7 @@ from kraken.core.configs.config import Config
 # from kraken.core.maths import Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
 
 from kraken.core.builder import Builder
-# from kraken.core.objects.object_3d import Object3D
+from kraken.core.objects.object_3d import Object3D
 # from kraken.core.objects.attributes.attribute import Attribute
 
 from kraken.plugins.maya_plugin.graph_manager import MayaGraphManager
@@ -651,7 +651,39 @@ class Builder(Builder):
             bool: True if successful.
 
         """
-        pass
+        def _searchComponent(x):
+            if x.getComponent() is not None:
+                return x.getComponent()
+            else:
+                return _searchComponent(x.getParent())
+
+        comp = _searchComponent(kConstraint)
+        print "\npose constraint: {} - {}".format(buildName, comp.getName())
+        for op in comp.getOperators():
+            print "\t", op.getName(), "------"
+            for input, v in op.inputs.iteritems():
+                if isinstance(v, list):
+                    v = v[0]
+                elif not isinstance(v, Object3D):
+                    continue
+
+                for base in v.__class__.__bases__:
+                    print "\t" * 2, input, "\t", base.__name__, isinstance(v, Object3D)
+
+        if self.isConstrainBetweenComponentIO(kConstraint):
+            constrainee = kConstraint.getConstrainee()
+            constrainers = kConstraint.getConstrainers()
+            src = self.getDCCSceneItem(constrainers[0])
+            dst = self.getDCCSceneItem(constrainee)
+
+        elif self.isConstrainPartOfComponentIO(kConstraint):
+            constrainee = kConstraint.getConstrainee()
+            constrainers = kConstraint.getConstrainers()
+            src = self.getDCCSceneItem(constrainers[0])
+            dst = self.getDCCSceneItem(constrainee)
+
+        else:
+            self.buildDccPoseConstraint(kConstraint, buildName)
 
     def buildNodeConstraint(self, kConstraint, buildName):
         pass
@@ -1138,6 +1170,26 @@ class Builder(Builder):
         cmds.setAttr(dccSceneItemName + "." + attr, matrix, type="matrix")
 
         return True
+
+    def isConstrainBetweenComponentIO(self, kConstraint):
+        constrainee = kConstraint.getConstrainee()
+        constrainer = kConstraint.getConstrainers()[0]
+
+        return (
+            (constrainee.getTypeName() == 'ComponentInput' and constrainer.getTypeName() == 'ComponentOutput')
+            or
+            (constrainee.getTypeName() == 'ComponentOutput' and constrainer.getTypeName() == 'ComponentInput')
+        )
+
+    def isConstrainPartOfComponentIO(self, kConstraint):
+        constrainee = kConstraint.getConstrainee()
+        constrainers = kConstraint.getConstrainers()
+
+        for c in constrainers:
+            if c.getTypeName() in ['ComponentOutput', 'ComponentInput']:
+                return True
+
+        return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
 
     # ==============
     # Build Methods

@@ -158,9 +158,9 @@ class CanvasOperator(object):
 
     def buildPorts(self, kOperator, buildName):
         for i in xrange(self.getPortCount(kOperator)):
-            self.forEachPort(kOperator, buildName, i)
+            self._forEachPort(kOperator, buildName, i)
 
-    def forEachPort(self, kOperator, buildName, index):
+    def _forEachPort(self, kOperator, buildName, index):
 
         portName, portConnectionType, portDataType = self.getPortInformation(kOperator, index)
 

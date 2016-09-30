@@ -127,11 +127,19 @@ class AbstractBone(Object3D):
         self.buildName = buildName
 
         self.xfo = kSceneItem.xfo
+        self._index = -1
 
         skeleton.addBone(self)
 
     def setBoneIndex(self, id):
         self._index = id
+
+    def getBoneIndex(self):
+        return self._index
+
+    @property
+    def id(self):
+        return self._index
 
     ###################################
     # implement Maya object's behaviour
