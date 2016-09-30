@@ -15,13 +15,9 @@
     <None Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MonolithDFGCommands.h" />
-    <ClInclude Include="test3.h" />
     <ClInclude Include="Test2Node.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MonolithDFGCommands.cpp" />
-    <ClCompile Include="test3.cpp" />
     <ClCompile Include="pluginMain.cpp" />
     <ClCompile Include="Test2Node.cpp" />
   </ItemGroup>

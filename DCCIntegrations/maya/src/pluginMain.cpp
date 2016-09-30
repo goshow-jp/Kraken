@@ -5,6 +5,8 @@
 //
 // Author: Maya Plug-in Wizard 2.0
 //
+#define FEC_SHARED
+#define FECS_SHARED
 #include "Foundation.h"
 
 #include "Test2Node.h"
@@ -29,8 +31,6 @@
 #include "FabricSpliceMayaDeformer.h"
 #include "FabricSpliceCommand.h"
 #include "FabricSpliceEditorCmd.h"
-#include "FabricSpliceMayaData.h"
-#include "FabricSpliceToolContext.h"
 #include "FabricDFGWidgetCommand.h"
 #include "FabricDFGWidget.h"
 #include "FabricDFGCanvasNode.h"
@@ -39,6 +39,7 @@
 #include "FabricSpliceHelpers.h"
 #include "FabricUpgradeAttrCommand.h"
 
+#include "MonolithDFGCommands.h"
 
 #ifdef _MSC_VER
   #define MAYA_EXPORT extern "C" __declspec(dllexport) MStatus _cdecl
@@ -196,29 +197,31 @@ MAYA_EXPORT initializePlugin( MObject obj )
   MStatus   status;
   MFnPlugin plugin( obj, "Monolith", "2016", "Any");
 
-  /*
-  if (MGlobal::mayaState() == MGlobal::kInteractive)
-  {
-    FabricSpliceRenderCallback::plug();
-  }
-  */
-
-  gOnSceneSaveCallbackId            = MSceneMessage::addCallback(MSceneMessage::kBeforeSave, onSceneSave);
-  gOnSceneLoadCallbackId            = MSceneMessage::addCallback(MSceneMessage::kAfterOpen, onSceneLoad);
-  gOnBeforeSceneOpenCallbackId      = MSceneMessage::addCallback(MSceneMessage::kBeforeOpen, onSceneNew);
-  gOnSceneNewCallbackId             = MSceneMessage::addCallback(MSceneMessage::kBeforeNew, onSceneNew);
-  gOnMayaExitCallbackId             = MSceneMessage::addCallback(MSceneMessage::kMayaExiting, onMayaExiting);
-  gOnSceneExportCallbackId          = MSceneMessage::addCallback(MSceneMessage::kBeforeExport, onSceneSave);
-  gOnBeforeImportCallbackId         = MSceneMessage::addCallback(MSceneMessage::kBeforeImport, onBeforeImport);
-  gOnSceneImportCallbackId          = MSceneMessage::addCallback(MSceneMessage::kAfterImport, onSceneLoad);
+  gOnSceneSaveCallbackId = MSceneMessage::addCallback(MSceneMessage::kBeforeSave, onSceneSave);
+  gOnSceneLoadCallbackId = MSceneMessage::addCallback(MSceneMessage::kAfterOpen, onSceneLoad);
+  gOnBeforeSceneOpenCallbackId = MSceneMessage::addCallback(MSceneMessage::kBeforeOpen, onSceneNew);
+  gOnSceneNewCallbackId = MSceneMessage::addCallback(MSceneMessage::kBeforeNew, onSceneNew);
+  gOnMayaExitCallbackId = MSceneMessage::addCallback(MSceneMessage::kMayaExiting, onMayaExiting);
+  gOnSceneExportCallbackId = MSceneMessage::addCallback(MSceneMessage::kBeforeExport, onSceneSave);
+  gOnBeforeImportCallbackId = MSceneMessage::addCallback(MSceneMessage::kBeforeImport, onBeforeImport);
+  gOnSceneImportCallbackId = MSceneMessage::addCallback(MSceneMessage::kAfterImport, onSceneLoad);
   gOnSceneCreateReferenceCallbackId = MSceneMessage::addCallback(MSceneMessage::kAfterCreateReference, onSceneLoad);
   gOnSceneImportReferenceCallbackId = MSceneMessage::addCallback(MSceneMessage::kAfterImportReference, onSceneLoad);
-  gOnSceneLoadReferenceCallbackId   = MSceneMessage::addCallback(MSceneMessage::kAfterLoadReference, onSceneLoad);
+  gOnSceneLoadReferenceCallbackId = MSceneMessage::addCallback(MSceneMessage::kAfterLoadReference, onSceneLoad);
+  gOnNodeAddedCallbackId = MDGMessage::addNodeAddedCallback(FabricSpliceBaseInterface::onNodeAdded);
+  gOnNodeRemovedCallbackId = MDGMessage::addNodeRemovedCallback(FabricSpliceBaseInterface::onNodeRemoved);
+  gOnNodeAddedDFGCallbackId = MDGMessage::addNodeAddedCallback(FabricDFGBaseInterface::onNodeAdded);
+  gOnNodeRemovedDFGCallbackId = MDGMessage::addNodeRemovedCallback(FabricDFGBaseInterface::onNodeRemoved);
+  gOnAnimCurveEditedCallbackId = MAnimMessage::addAnimCurveEditedCallback(FabricDFGBaseInterface::onAnimCurveEdited);
  
   plugin.registerNode("Test2", Test2::id, Test2::creator, Test2::initialize );
   plugin.registerNode("test3", test3::id, test3::creator, test3::initialize );
 
-
+  plugin.registerCommand(
+    "monolithReloadJSON",
+    MonolithDFGReloadJSONCommand::creator,
+    MonolithDFGReloadJSONCommand::newSyntax
+    );
   FabricSplice::Initialize();
   FabricSplice::Logging::setLogFunc(mayaLogFunc);
   FabricSplice::Logging::setLogErrorFunc(mayaLogErrorFunc);
@@ -232,9 +235,9 @@ MAYA_EXPORT initializePlugin( MObject obj )
     FabricSplice::SetLicenseType(FabricCore::ClientLicenseType_Compute);
   }
 
-
   return status;
 }
+
 
 MAYA_EXPORT uninitializePlugin( MObject obj)
 //
@@ -251,6 +254,30 @@ MAYA_EXPORT uninitializePlugin( MObject obj)
 
   plugin.deregisterNode(Test2::id);
   plugin.deregisterNode(test3::id);
+  plugin.deregisterCommand( "dfgReloadJSON" );
+
+  MSceneMessage::removeCallback(gOnSceneSaveCallbackId);
+  MSceneMessage::removeCallback(gOnSceneLoadCallbackId);
+  MSceneMessage::removeCallback(gOnMayaExitCallbackId);
+  MSceneMessage::removeCallback(gOnBeforeImportCallbackId);
+  MSceneMessage::removeCallback(gOnSceneImportCallbackId);
+  MSceneMessage::removeCallback(gOnSceneExportCallbackId);
+  MSceneMessage::removeCallback(gOnSceneCreateReferenceCallbackId);
+  MSceneMessage::removeCallback(gOnSceneImportReferenceCallbackId);
+  MSceneMessage::removeCallback(gOnSceneLoadReferenceCallbackId);
+  MEventMessage::removeCallback(gOnModelPanelSetFocusCallbackId);
+
+  // FE-6558 : Don't plug the render-callback if not interactive.
+  // Otherwise it will crash on linux machine without DISPLAY
+  // if (MGlobal::mayaState() == MGlobal::kInteractive)
+  //   FabricSpliceRenderCallback::unplug();
+
+  MDGMessage::removeCallback(gOnNodeAddedCallbackId);
+  MDGMessage::removeCallback(gOnNodeRemovedCallbackId);
+
+  MDGMessage::removeCallback(gOnNodeAddedDFGCallbackId);
+  MDGMessage::removeCallback(gOnNodeRemovedDFGCallbackId);
+  MDGMessage::removeCallback(gOnAnimCurveEditedCallbackId);
 
 
   FabricSplice::Logging::setKLReportFunc(0);
