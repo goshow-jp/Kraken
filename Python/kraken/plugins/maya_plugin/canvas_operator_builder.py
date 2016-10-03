@@ -40,6 +40,8 @@ class CanvasOperator(object):
         self.isKLBased = isKLBased
         self.rigGraph = rigGraph
         self.rigGraph.setCurrentGroup(None)
+        self.inputControls = []
+        self.outputControls = []
 
         self.buildBase(kOperator, buildName, rigGraph)
         if self.isKLBased:
@@ -49,6 +51,7 @@ class CanvasOperator(object):
 
         self.buildPorts(kOperator, buildName)
         self.setOperatorCode(kOperator, buildName)
+        self.buildCache(kOperator, buildName)
 
     def buildBase(self, kOperator, buildName, rigGraph):
         self.client = ks.getCoreClient()
@@ -156,6 +159,144 @@ class CanvasOperator(object):
                 if type(rtVal) != str:
                     raise TypeError(kOperator.getName() + ".evaluate(): Invalid Argument Value: " + str(rtVal) + " (" + type(rtVal).__name__ + "), for Argument: " + portName + " (" + portDataType + ")")
 
+    def buildCache(self, kOperator, buildName):
+        if self.inputControls:
+            self.buildInputCache(kOperator, buildName)
+        if self.outputControls:
+            self.buildOutputCache(kOperator, buildName)
+        if self.inputControls and self.outputControls:
+            self.connectCache(kOperator, buildName)
+
+    def buildInputCache(self, kOperator, buildName):
+        cache_preset_path = "Kraken.KrakenForCanvas.KrakenInputCache"
+        tmpPath = "{}|{}".format(self.containerNodeName, "KrakenInputCache")
+        inputArrayNodeNameIn = "ComposeKrakenInputArray"
+        inputArrayNodeNameOut = "DecomposeKrakenInputArray"
+        self.inputCacheNodeName = self.rigGraph.createNodeFromPreset(
+            tmpPath, cache_preset_path, self.solverNodeName, dfgExec=self.containerExec)
+
+        # detect if array builder is needed
+        for i, input in enumerate(self.inputControls):
+            if isinstance(input[1], list) and len(self.inputControls) == 1:
+                needArrayBuilder = False
+                self.rigGraph.connectNodes("", input[0], self.inputCacheNodeName, "input", dfgExec=self.containerExec)
+                self.rigGraph.connectNodes(self.inputCacheNodeName, "result", self.solverSolveNodeName, input[0], dfgExec=self.containerExec)
+                break
+        else:
+            needArrayBuilder = True
+
+        if not needArrayBuilder:
+            return
+
+        # build inputs array
+        tmpPath = "{}|{}".format(self.containerNodeName, inputArrayNodeNameIn)
+        self.rigGraph.createFunctionNode(tmpPath, inputArrayNodeNameIn, dfgExec=self.containerExec)
+        composeInputArray = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, inputArrayNodeNameIn))
+        composeInputArray.addExecPort("result", self.client.DFG.PortTypes.Out, "Mat44[]")
+
+        tmpPath = "{}|{}".format(self.containerNodeName, inputArrayNodeNameOut)
+        self.rigGraph.createFunctionNode(tmpPath, inputArrayNodeNameOut, dfgExec=self.containerExec)
+        decomposeInputArray = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, inputArrayNodeNameOut))
+        decomposeInputArray.addExecPort("result", self.client.DFG.PortTypes.In, "Mat44[]")
+
+        compCode = "  result.resize( {} );\n".format(len(self.inputControls))
+        decompCode = ""
+        for i, input in enumerate(self.inputControls):
+            if isinstance(input[1], list):
+                for x in input[1]:
+                    composeInputArray.addExecPort(x['opObject'].getName(), self.client.DFG.PortTypes.In, "Mat44")
+                    decomposeInputArray.addExecPort(x['opObject'].getName(), self.client.DFG.PortTypes.Out, "Mat44")
+            else:
+                composeInputArray.addExecPort(input[0], self.client.DFG.PortTypes.In, "Mat44")
+                decomposeInputArray.addExecPort(input[0], self.client.DFG.PortTypes.Out, "Mat44")
+
+                compCode += "  result[ {} ] = {};\n".format(i, input[0])
+                decompCode += "  {} = result[ {} ];\n".format(input[0], i)
+
+                self.rigGraph.connectNodes("", input[0], inputArrayNodeNameIn, input[0], dfgExec=self.containerExec)
+                self.rigGraph.connectNodes(inputArrayNodeNameOut, input[0], self.solverSolveNodeName, input[0], dfgExec=self.containerExec)
+
+        compInputArrayCode = "dfgEntry {{\n{}\n}}".format(compCode)
+        decompInputArrayCode = "dfgEntry {{\n{}\n}}".format(decompCode)
+        composeInputArray.setCode(compInputArrayCode)
+        decomposeInputArray.setCode(decompInputArrayCode)
+
+        self.rigGraph.connectNodes(
+            inputArrayNodeNameIn, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
+        self.rigGraph.connectNodes(
+            self.inputCacheNodeName, "result", inputArrayNodeNameOut, "result", dfgExec=self.containerExec)
+
+        '''
+        try:
+            self.rigGraph.connectNodes(
+                self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
+        except AttributeError:
+            pass
+        '''
+
+    def buildOutputCache(self, kOperator, buildName):
+        cache_preset_path = "Kraken.KrakenForCanvas.KrakenOutputCache"
+        tmpPath = "{}|{}".format(self.containerNodeName, "KrakenOutputCache")
+        outputArrayNodeNameIn = "ComposeKrakenOutputArray"
+        outputArrayNodeNameOut = "DecomposeKrakenOutputArray"
+
+        self.outputCacheNodeName = self.rigGraph.createNodeFromPreset(
+            tmpPath, cache_preset_path, self.solverNodeName, dfgExec=self.containerExec)
+
+        # detect if array builder is needed
+        for i, output in enumerate(self.outputControls):
+            if isinstance(output[1], list) and len(self.outputControls) == 1:
+                needArrayBuilder = False
+                self.rigGraph.connectNodes(self.solverSolveNodeName, output[0], self.outputCacheNodeName, "output", dfgExec=self.containerExec)
+                self.rigGraph.connectNodes(self.outputCacheNodeName, "result", "", output[0], dfgExec=self.containerExec)
+                break
+        else:
+            needArrayBuilder = True
+
+        if not needArrayBuilder:
+            return
+
+        # build output array
+        tmpPath = "{}|{}".format(self.containerNodeName, outputArrayNodeNameIn)
+        self.rigGraph.createFunctionNode(tmpPath, outputArrayNodeNameIn, dfgExec=self.containerExec)
+        composeOutputArray = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, outputArrayNodeNameIn))
+        composeOutputArray.addExecPort("result", self.client.DFG.PortTypes.Out, "Mat44[]")
+
+        tmpPath = "{}|{}".format(self.containerNodeName, outputArrayNodeNameOut)
+        self.rigGraph.createFunctionNode(tmpPath, outputArrayNodeNameOut, dfgExec=self.containerExec)
+        decomposeOutputArray = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, outputArrayNodeNameOut))
+        decomposeOutputArray.addExecPort("result", self.client.DFG.PortTypes.In, "Mat44[]")
+
+        compCode = "  result.resize( {} );\n".format(len(self.outputControls))
+        decompCode = ""
+        for i, output in enumerate(self.outputControls):
+            if isinstance(output[1], list):
+                composeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.In, "Mat44")
+                decomposeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.Out, "Mat44")
+            else:
+                composeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.In, "Mat44")
+                decomposeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.Out, "Mat44")
+
+                compCode += "  result[ {} ] = {};\n".format(i, output[0])
+                decompCode += "  {} = result[ {} ];\n".format(output[0], i)
+
+                self.rigGraph.connectNodes(self.solverSolveNodeName, output[0], outputArrayNodeNameIn, output[0], dfgExec=self.containerExec)
+                self.rigGraph.connectNodes(outputArrayNodeNameOut, output[0], "", output[0], dfgExec=self.containerExec)
+
+        compOutputArrayCode = "dfgEntry {{\n{}\n}}".format(compCode)
+        decompOutputArrayCode = "dfgEntry {{\n{}\n}}".format(decompCode)
+        composeOutputArray.setCode(compOutputArrayCode)
+        decomposeOutputArray.setCode(decompOutputArrayCode)
+
+        self.rigGraph.connectNodes(
+            outputArrayNodeNameIn, "result", self.outputCacheNodeName, "output", dfgExec=self.containerExec)
+        self.rigGraph.connectNodes(
+            self.outputCacheNodeName, "result", outputArrayNodeNameOut, "result", dfgExec=self.containerExec)
+
+    def connectCache(self, kOperator, buildName):
+        self.rigGraph.connectNodes(
+            self.inputCacheNodeName, "isCached", self.outputCacheNodeName, "isCached", dfgExec=self.containerExec)
+
     def buildPorts(self, kOperator, buildName):
         for i in xrange(self.getPortCount(kOperator)):
             self._forEachPort(kOperator, buildName, i)
@@ -192,9 +333,13 @@ class CanvasOperator(object):
         # Add the Canvas Port for each port.
         if portConnectionType == 'In':
             self.makeConnectInput(kOperator, buildName, portName, portConnectionType, portDataType, connectionTargets)
+            if "Mat44" in portDataType:
+                self.inputControls.append([portName, connectionTargets])
 
         elif portConnectionType in ['IO', 'Out']:
             self.makeConnectOutput(buildName, portName, portConnectionType, portDataType, connectionTargets)
+            if "Mat44" in portDataType:
+                self.outputControls.append([portName, connectionTargets])
 
     def setOperatorCode(self, kOperator, buildName):
         if self.isKLBased is True:
@@ -387,7 +532,8 @@ class CanvasOperator(object):
                     portDataType,
                     self.canvasNode + "." + portName + '[' + str(index) + ']',
                     connectionTargets[index]['opObject'],
-                    connectionTargets[index]['dccSceneItem'])
+                    connectionTargets[index]['dccSceneItem'],
+                    index)
         else:
             self._connectInput(
                 kOperator,
@@ -399,7 +545,7 @@ class CanvasOperator(object):
                 connectionTargets['opObject'],
                 connectionTargets['dccSceneItem'])
 
-    def _connectInput(self, kOperator, buildName, portName, portConnectionType, portDataType, tgt, opObject, dccSceneItem):
+    def _connectInput(self, kOperator, buildName, portName, portConnectionType, portDataType, tgt, opObject, dccSceneItem, index=-1):
 
         desiredPortName = "{}_{}".format(buildName, portName)
         realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
@@ -425,10 +571,8 @@ class CanvasOperator(object):
         tgt = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, tgt.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
-            message = ("Operator '" + self.solverSolveNodeName +
-                       "' port '" + portName + "' not connected."
-                       "' dccSceneItem type '" + str(type(dccSceneItem)) + "' not supported.")
-            logger.warning(message)
+            print "____connect input ------", index
+            self.selectKrakenTransformSkeleton(index, portName, dccSceneItem)
             return
 
         if isinstance(opObject, Attribute):
@@ -459,7 +603,8 @@ class CanvasOperator(object):
                     portDataType,
                     str(self.canvasNode + "." + portName) + '[' + str(index) + ']',
                     connectionTargets[index]['opObject'],
-                    connectionTargets[index]['dccSceneItem'])
+                    connectionTargets[index]['dccSceneItem'],
+                    index)
         else:
             if connectionTargets['opObject'] is not None:
                 self._connectOutput(
@@ -469,9 +614,10 @@ class CanvasOperator(object):
                     portDataType,
                     str(self.canvasNode + "." + portName),
                     connectionTargets['opObject'],
-                    connectionTargets['dccSceneItem'])
+                    connectionTargets['dccSceneItem'],
+                    0)
 
-    def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem):
+    def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem, index=-1):
 
         desiredPortName = "{}_{}".format(buildName, portName)
         realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
@@ -497,10 +643,7 @@ class CanvasOperator(object):
         src = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, src.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
-            message = ("Operator '" + self.solverSolveNodeName +
-                       "' port '" + portName + "' not connected."
-                       "' dccSceneItem type '" + str(type(dccSceneItem)) + "' not supported.")
-            logger.warning(message)
+            self.updateKrakenTransformSkeleton(index, portName, dccSceneItem)
             return
 
         if isinstance(opObject, Attribute):
@@ -522,3 +665,58 @@ class CanvasOperator(object):
         else:
             raise NotImplementedError("Kraken Canvas Operator cannot set object [%s] outputs with Python built-in types [%s] directly!" % (src, opObject.__class__.__name__))
 
+    def selectKrakenTransformSkeleton(self, index, inputPort, bone):
+        select_preset_path = "Kraken.KrakenAnimation.SelectKrakenTransform"
+        tmpPath = "{}|{}".format(self.containerNodeName, "SelectKrakenTransform")
+        bind = self.rigGraph.dfgBinding
+
+        try:
+            selectExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, self.selectKrakenTransformNodeName))
+            # rtVal = selectExec.getPortDefaultValue("indice", "UInt32[]")
+            rtVal = selectExec.getPortDefaultValue("indice", "UInt32[]")
+            # size = rtVal.getArraySize()
+            size = len(rtVal)
+            rtVal.resize(size + 1)
+            rtVal[size] = bone.id
+            # selectExec.setPortDefaultValue("indice", rtVal, False)
+            bind.setArgValue("Solvers_2.{}.{}.indice".format(self.containerNodeName, self.selectKrakenTransformNodeName), rtVal, False)
+
+        except AttributeError:
+            self.selectKrakenTransformNodeName = self.rigGraph.createNodeFromPreset(
+                tmpPath, select_preset_path, self.solverNodeName, dfgExec=self.containerExec)
+            selectExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, self.selectKrakenTransformNodeName))
+            rtVal = selectExec.getPortDefaultValue("indice", "UInt32[]")
+            rtVal.resize(1)
+            rtVal[0] = bone.id
+            # selectExec.setPortDefaultValue("indice", rtVal, False)
+            bind.setArgValue("Solvers_2.{}.{}.indice".format(self.containerNodeName, self.selectKrakenTransformNodeName), rtVal, False)
+
+    def updateKrakenTransformSkeleton(self, index, inputPort, bone):
+        update_preset_path = "Kraken.KrakenAnimation.UpdateKrakenTransform"
+        tmpPath = "{}|{}|{}".format(self.containerNodeName, "UpdateKrakenTransform", bone.shortName)
+
+        update = self.rigGraph.createNodeFromPreset(
+            tmpPath, update_preset_path, self.solverNodeName, dfgExec=self.containerExec)
+
+        if index is not -1:
+            tmpPath = "{}|{}|{}".format(self.containerNodeName, "UpdateKrakenTransform", "get{}".format(str(index)))
+            get = self.rigGraph.createNodeFromPreset(
+                tmpPath, "Fabric.Core.Array.Get", self.solverNodeName, dfgExec=self.containerExec)
+
+            rtVal = ks.rtVal("UInt32", index)
+            getExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, get))
+            getExec.setPortDefaultValue("index", rtVal, False)
+
+            self.rigGraph.connectNodes(
+                self.solverSolveNodeName, inputPort, get, "array", dfgExec=self.containerExec)
+
+            self.rigGraph.connectNodes(
+                get, "element", update, "element", dfgExec=self.containerExec)
+
+        else:
+            self.rigGraph.connectNodes(
+                self.solverSolveNodeName, inputPort, update, "element", dfgExec=self.containerExec)
+
+        rtVal = ks.rtVal("UInt32", bone.id)
+        updateExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, update))
+        updateExec.setPortDefaultValue("index", rtVal, False)

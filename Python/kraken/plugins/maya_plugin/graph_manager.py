@@ -41,6 +41,7 @@ class MayaGraphManager(GraphManager):
         self._GraphManager__dfgBinding = dfgbinding
         self._GraphManager__dfgExec = dfgexec
         self.__nodeName = canvasNode
+        self.dfgBinding = dfgbinding
 
     @property
     def nodeName(self):

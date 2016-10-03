@@ -125,6 +125,7 @@ class AbstractBone(Object3D):
 
         self.canvasNode = skeleton.getNode()
         self.buildName = buildName
+        self.shortName = kSceneItem.getName()
 
         self.xfo = kSceneItem.xfo
         self._index = -1

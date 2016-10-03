@@ -17,6 +17,7 @@ from kraken.core.configs.config import Config
 
 from kraken.core.builder import Builder
 from kraken.core.objects.object_3d import Object3D
+from kraken.core.objects.components.component import Component
 # from kraken.core.objects.attributes.attribute import Attribute
 
 from kraken.plugins.maya_plugin.graph_manager import MayaGraphManager
@@ -651,24 +652,7 @@ class Builder(Builder):
             bool: True if successful.
 
         """
-        def _searchComponent(x):
-            if x.getComponent() is not None:
-                return x.getComponent()
-            else:
-                return _searchComponent(x.getParent())
-
-        comp = _searchComponent(kConstraint)
-        print "\npose constraint: {} - {}".format(buildName, comp.getName())
-        for op in comp.getOperators():
-            print "\t", op.getName(), "------"
-            for input, v in op.inputs.iteritems():
-                if isinstance(v, list):
-                    v = v[0]
-                elif not isinstance(v, Object3D):
-                    continue
-
-                for base in v.__class__.__bases__:
-                    print "\t" * 2, input, "\t", base.__name__, isinstance(v, Object3D)
+        comp = self._searchComponentWithin(kConstraint)
 
         if self.isConstrainBetweenComponentIO(kConstraint):
             constrainee = kConstraint.getConstrainee()
@@ -899,6 +883,22 @@ class Builder(Builder):
 
         """
 
+        comp = self._searchComponentWithin(kOperator)
+        print "\npose constraint: {} - {}".format(buildName, comp)
+
+        for op in comp.getOperators():
+            print "\t", op.getName(), "------"
+            for input, v in op.inputs.iteritems():
+
+                if isinstance(v, list):
+                    print "		list"
+                    v = v[0]
+                elif not isinstance(v, Object3D):
+                    continue
+
+                for base in v.__class__.__bases__:
+                    print "\t" * 2, input, "\t", base.__name__, isinstance(v, Object3D)
+
         op = CanvasOperator(self, kOperator, buildName, self.rigGraph, isKLBased)
         return op
 
@@ -933,7 +933,6 @@ class Builder(Builder):
                                               portType="In",
                                               typeSpec="Float32",
                                               connectToPortPath="")
-
 
     def buildConstraintContainer(self, buildName):
 
@@ -1190,6 +1189,22 @@ class Builder(Builder):
                 return True
 
         return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
+
+    def _searchComponentWithin(self, x):
+        """ Search where this object(x) is within, traversing its parent. """
+        if isinstance(x, Component):
+            return x
+
+        if isinstance(x, Object3D):
+            if x.getComponent() is not None:
+                return x.getComponent()
+            else:
+                return self._searchComponentWithin(x.getParent())
+        else:
+            if x.getComponent() is not None:
+                return x.getComponent()
+            else:
+                return self._searchComponentWithin(x.getParent())
 
     # ==============
     # Build Methods
