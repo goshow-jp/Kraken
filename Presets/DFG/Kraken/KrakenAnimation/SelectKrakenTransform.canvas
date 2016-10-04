@@ -17,7 +17,6 @@
       },
     {
       "objectType" : "ExecPort",
-      "metadata" : {},
       "name" : "indice",
       "nodePortType" : "Out",
       "defaultValues" : {
@@ -39,7 +38,7 @@
       }
     ],
   "extDeps" : {},
-  "presetGUID" : "7CE7C1BE1F7C963CB2713747B5CAC597",
+  "presetGUID" : "840A9FC01FDEA59E405DEFBEC165C802",
   "nodes" : [
     {
       "objectType" : "Inst",
@@ -108,9 +107,11 @@
         "code" : "dfgEntry {
   result.resize( indice.size() );
   for( Index i=0; i < indice.size(); i++){
+    if( transforms.size() < indice[i] ){
+      continue;
+    }
     result[i] = transforms[indice[i]].global;
   }
-  // result = a + b;
 }
 "
         }
@@ -162,7 +163,6 @@
           },
         {
           "objectType" : "ExecPort",
-          "metadata" : {},
           "name" : "indice",
           "nodePortType" : "Out",
           "defaultValues" : {
@@ -184,7 +184,7 @@
           }
         ],
       "extDeps" : {},
-      "presetGUID" : "7CE7C1BE1F7C963CB2713747B5CAC597",
+      "presetGUID" : "840A9FC01FDEA59E405DEFBEC165C802",
       "nodes" : [
         {
           "objectType" : "Inst",
@@ -253,9 +253,11 @@
             "code" : "dfgEntry {
   result.resize( indice.size() );
   for( Index i=0; i < indice.size(); i++){
+    if( transforms.size() < indice[i] ){
+      continue;
+    }
     result[i] = transforms[indice[i]].global;
   }
-  // result = a + b;
 }
 "
             }

@@ -1,7 +1,7 @@
 {
   "objectType" : "Graph",
   "metadata" : {
-    "uiGraphPan" : "{\n  \"x\" : -440.0,\n  \"y\" : 10.0\n  }"
+    "uiGraphPan" : "{\n  \"x\" : -477.0,\n  \"y\" : 66.0\n  }"
     },
   "title" : "UpdateKrakenTransform",
   "ports" : [
@@ -17,7 +17,6 @@
       },
     {
       "objectType" : "ExecPort",
-      "metadata" : {},
       "name" : "element",
       "nodePortType" : "Out",
       "defaultValues" : {
@@ -53,7 +52,6 @@
       },
     {
       "objectType" : "ExecPort",
-      "metadata" : {},
       "name" : "index",
       "nodePortType" : "Out",
       "defaultValues" : {
@@ -64,12 +62,12 @@
       }
     ],
   "extDeps" : {},
-  "presetGUID" : "4CF0F4EF8FA70634B3B2B6DFBE68A1C3",
+  "presetGUID" : "5555E6CF5DBB7D0937A49877CAC9BAF6",
   "nodes" : [
     {
       "objectType" : "Set",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":1087.48,\"y\":145.386}"
+        "uiGraphPos" : "{\"x\":1054.48,\"y\":112.386}"
         },
       "name" : "set_2",
       "ports" : [
@@ -82,24 +80,9 @@
       "varPath" : "initializeSkeleton.transforms"
       },
     {
-      "objectType" : "Set",
-      "metadata" : {
-        "uiGraphPos" : "{\"x\":555.129,\"y\":129.983}"
-        },
-      "name" : "set_3",
-      "ports" : [
-        {
-          "objectType" : "SetPort",
-          "name" : "value",
-          "nodePortType" : "IO"
-          }
-        ],
-      "varPath" : "initializeSkeleton.transforms"
-      },
-    {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":829.8490000000001,\"y\":201.444}"
+        "uiGraphPos" : "{\"x\":756.8490000000001,\"y\":216.444}"
         },
       "name" : "UpdateKrakenTransformInArray",
       "ports" : [
@@ -161,11 +144,33 @@
           "KrakenAnimation" : "*"
           },
         "code" : "dfgEntry {
-  transforms[i].global = element;
-  // result = a + b;
+  if( transforms.size() < index ){
+    report( \"not ready\" );
+    return;
+  }
+
+ 
+  // report( transforms.isNull() );  
+
+  transforms[index].global = element;
 }
 "
         }
+      },
+    {
+      "objectType" : "Get",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":482.0,\"y\":82.0}"
+        },
+      "name" : "get",
+      "ports" : [
+        {
+          "objectType" : "GetPort",
+          "name" : "value",
+          "nodePortType" : "Out"
+          }
+        ],
+      "varPath" : "initializeSkeleton.transforms"
       }
     ],
   "connections" : {
@@ -178,18 +183,18 @@
     "set_2.value" : [
       "exec"
       ],
-    "set_3.value" : [
-      "UpdateKrakenTransformInArray.transforms"
-      ],
     "UpdateKrakenTransformInArray.transforms" : [
       "set_2.value"
+      ],
+    "get.value" : [
+      "UpdateKrakenTransformInArray.transforms"
       ]
     },
   "requiredPresets" : {
     "Kraken.KrakenAnimation.UpdateKrakenTransform" : {
       "objectType" : "Graph",
       "metadata" : {
-        "uiGraphPan" : "{\n  \"x\" : -440.0,\n  \"y\" : 10.0\n  }"
+        "uiGraphPan" : "{\n  \"x\" : -477.0,\n  \"y\" : 66.0\n  }"
         },
       "title" : "UpdateKrakenTransform",
       "ports" : [
@@ -205,7 +210,6 @@
           },
         {
           "objectType" : "ExecPort",
-          "metadata" : {},
           "name" : "element",
           "nodePortType" : "Out",
           "defaultValues" : {
@@ -241,7 +245,6 @@
           },
         {
           "objectType" : "ExecPort",
-          "metadata" : {},
           "name" : "index",
           "nodePortType" : "Out",
           "defaultValues" : {
@@ -252,12 +255,12 @@
           }
         ],
       "extDeps" : {},
-      "presetGUID" : "4CF0F4EF8FA70634B3B2B6DFBE68A1C3",
+      "presetGUID" : "5555E6CF5DBB7D0937A49877CAC9BAF6",
       "nodes" : [
         {
           "objectType" : "Set",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":1087.48,\"y\":145.386}"
+            "uiGraphPos" : "{\"x\":1054.48,\"y\":112.386}"
             },
           "name" : "set_2",
           "ports" : [
@@ -270,24 +273,9 @@
           "varPath" : "initializeSkeleton.transforms"
           },
         {
-          "objectType" : "Set",
-          "metadata" : {
-            "uiGraphPos" : "{\"x\":555.129,\"y\":129.983}"
-            },
-          "name" : "set_3",
-          "ports" : [
-            {
-              "objectType" : "SetPort",
-              "name" : "value",
-              "nodePortType" : "IO"
-              }
-            ],
-          "varPath" : "initializeSkeleton.transforms"
-          },
-        {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":829.8490000000001,\"y\":201.444}"
+            "uiGraphPos" : "{\"x\":756.8490000000001,\"y\":216.444}"
             },
           "name" : "UpdateKrakenTransformInArray",
           "ports" : [
@@ -349,11 +337,33 @@
               "KrakenAnimation" : "*"
               },
             "code" : "dfgEntry {
-  transforms[i].global = element;
-  // result = a + b;
+  if( transforms.size() < index ){
+    report( \"not ready\" );
+    return;
+  }
+
+ 
+  // report( transforms.isNull() );  
+
+  transforms[index].global = element;
 }
 "
             }
+          },
+        {
+          "objectType" : "Get",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":482.0,\"y\":82.0}"
+            },
+          "name" : "get",
+          "ports" : [
+            {
+              "objectType" : "GetPort",
+              "name" : "value",
+              "nodePortType" : "Out"
+              }
+            ],
+          "varPath" : "initializeSkeleton.transforms"
           }
         ],
       "connections" : {
@@ -366,11 +376,11 @@
         "set_2.value" : [
           "exec"
           ],
-        "set_3.value" : [
-          "UpdateKrakenTransformInArray.transforms"
-          ],
         "UpdateKrakenTransformInArray.transforms" : [
           "set_2.value"
+          ],
+        "get.value" : [
+          "UpdateKrakenTransformInArray.transforms"
           ]
         }
       }
