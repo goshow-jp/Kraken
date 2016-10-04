@@ -882,23 +882,6 @@ class Builder(Builder):
             bool: True if successful.
 
         """
-
-        comp = self._searchComponentWithin(kOperator)
-        print "\npose constraint: {} - {}".format(buildName, comp)
-
-        for op in comp.getOperators():
-            print "\t", op.getName(), "------"
-            for input, v in op.inputs.iteritems():
-
-                if isinstance(v, list):
-                    print "		list"
-                    v = v[0]
-                elif not isinstance(v, Object3D):
-                    continue
-
-                for base in v.__class__.__bases__:
-                    print "\t" * 2, input, "\t", base.__name__, isinstance(v, Object3D)
-
         op = CanvasOperator(self, kOperator, buildName, self.rigGraph, isKLBased)
         return op
 

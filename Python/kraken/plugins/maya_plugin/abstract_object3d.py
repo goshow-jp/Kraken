@@ -73,6 +73,9 @@ class AbstractSkeleton(Object3D):
         self.setLastBoneNode(addBone)
         # self.skeletonDestNode = cacheNode
 
+        self.rigGraph.connectNodes(self.variableNode, "value", "", "exec", dfgExec=self.containerNodeExec)
+        self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
+
     def getNode(self):
         return self.canvasNode
 

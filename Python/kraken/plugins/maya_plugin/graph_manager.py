@@ -5,8 +5,6 @@ GraphManager -- Node management.
 
 """
 
-from collections import defaultdict
-
 from kraken.core.kraken_system import ks
 from kraken.plugins.canvas_plugin.graph_manager import GraphManager
 import FabricEngine.Core as core
@@ -26,9 +24,10 @@ class MayaGraphManager(GraphManager):
         super(MayaGraphManager, self).__init__()
 
         canvasNode = pm.createNode('canvasNode', name=nodeName)
+        mel.eval('setAttr "{}.nodeState" 1;'.format(nodeName))
         ctxtId = mel.eval('FabricCanvasGetContextID;')
         bindId = mel.eval('FabricCanvasGetBindingID -node "{}";'.format(canvasNode))
-        client = core.createClient({'contextID': ctxtId})
+        client = core.createClient({'contextID': ctxtId, 'guarded': True})
 
         # client = ks.getCoreClient()
         ks.loadExtension('KrakenForCanvas')

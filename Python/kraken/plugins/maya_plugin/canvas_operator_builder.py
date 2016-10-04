@@ -42,6 +42,7 @@ class CanvasOperator(object):
         self.rigGraph.setCurrentGroup(None)
         self.inputControls = []
         self.outputControls = []
+        self.buildName = buildName
 
         self.buildBase(kOperator, buildName, rigGraph)
         if self.isKLBased:
@@ -52,6 +53,11 @@ class CanvasOperator(object):
         self.buildPorts(kOperator, buildName)
         self.setOperatorCode(kOperator, buildName)
         self.buildCache(kOperator, buildName)
+
+        try:
+            self.selectKrakenTransformNodeName
+        except AttributeError:
+            self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
 
     def buildBase(self, kOperator, buildName, rigGraph):
         self.client = ks.getCoreClient()
@@ -226,14 +232,6 @@ class CanvasOperator(object):
         self.rigGraph.connectNodes(
             self.inputCacheNodeName, "result", inputArrayNodeNameOut, "result", dfgExec=self.containerExec)
 
-        '''
-        try:
-            self.rigGraph.connectNodes(
-                self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
-        except AttributeError:
-            pass
-        '''
-
     def buildOutputCache(self, kOperator, buildName):
         cache_preset_path = "Kraken.KrakenForCanvas.KrakenOutputCache"
         tmpPath = "{}|{}".format(self.containerNodeName, "KrakenOutputCache")
@@ -271,17 +269,18 @@ class CanvasOperator(object):
         decompCode = ""
         for i, output in enumerate(self.outputControls):
             if isinstance(output[1], list):
-                composeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.In, "Mat44")
-                decomposeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.Out, "Mat44")
+                pn = composeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.In, "Mat44")
+                po = decomposeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.Out, "Mat44")
+
             else:
-                composeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.In, "Mat44")
-                decomposeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.Out, "Mat44")
+                pn = composeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.In, "Mat44")
+                po = decomposeOutputArray.addExecPort(output[0], self.client.DFG.PortTypes.Out, "Mat44")
 
-                compCode += "  result[ {} ] = {};\n".format(i, output[0])
-                decompCode += "  {} = result[ {} ];\n".format(output[0], i)
+                compCode += "  result[ {} ] = {};\n".format(i, pn)
+                decompCode += "  {} = result[ {} ];\n".format(po, i)
 
-                self.rigGraph.connectNodes(self.solverSolveNodeName, output[0], outputArrayNodeNameIn, output[0], dfgExec=self.containerExec)
-                self.rigGraph.connectNodes(outputArrayNodeNameOut, output[0], "", output[0], dfgExec=self.containerExec)
+                self.rigGraph.connectNodes(self.solverSolveNodeName, output[0], outputArrayNodeNameIn, pn, dfgExec=self.containerExec)
+                self.rigGraph.connectNodes(outputArrayNodeNameOut, po, "", output[0], dfgExec=self.containerExec)
 
         compOutputArrayCode = "dfgEntry {{\n{}\n}}".format(compCode)
         decompOutputArrayCode = "dfgEntry {{\n{}\n}}".format(decompCode)
@@ -296,6 +295,14 @@ class CanvasOperator(object):
     def connectCache(self, kOperator, buildName):
         self.rigGraph.connectNodes(
             self.inputCacheNodeName, "isCached", self.outputCacheNodeName, "isCached", dfgExec=self.containerExec)
+
+        try:
+            # FIXME: cause crash while build
+            self.rigGraph.connectNodes(
+                self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
+            pass
+        except AttributeError:
+            pass
 
     def buildPorts(self, kOperator, buildName):
         for i in xrange(self.getPortCount(kOperator)):
@@ -333,13 +340,9 @@ class CanvasOperator(object):
         # Add the Canvas Port for each port.
         if portConnectionType == 'In':
             self.makeConnectInput(kOperator, buildName, portName, portConnectionType, portDataType, connectionTargets)
-            if "Mat44" in portDataType:
-                self.inputControls.append([portName, connectionTargets])
 
         elif portConnectionType in ['IO', 'Out']:
             self.makeConnectOutput(buildName, portName, portConnectionType, portDataType, connectionTargets)
-            if "Mat44" in portDataType:
-                self.outputControls.append([portName, connectionTargets])
 
     def setOperatorCode(self, kOperator, buildName):
         if self.isKLBased is True:
@@ -545,6 +548,9 @@ class CanvasOperator(object):
                 connectionTargets['opObject'],
                 connectionTargets['dccSceneItem'])
 
+        if "Mat44" in portDataType:
+            self.inputControls.append([portName, connectionTargets])
+
     def _connectInput(self, kOperator, buildName, portName, portConnectionType, portDataType, tgt, opObject, dccSceneItem, index=-1):
 
         desiredPortName = "{}_{}".format(buildName, portName)
@@ -571,7 +577,6 @@ class CanvasOperator(object):
         tgt = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, tgt.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
-            print "____connect input ------", index
             self.selectKrakenTransformSkeleton(index, portName, dccSceneItem)
             return
 
@@ -615,7 +620,10 @@ class CanvasOperator(object):
                     str(self.canvasNode + "." + portName),
                     connectionTargets['opObject'],
                     connectionTargets['dccSceneItem'],
-                    0)
+                    -1)
+
+        if "Mat44" in portDataType:
+            self.outputControls.append([portName, connectionTargets])
 
     def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem, index=-1):
 
@@ -668,28 +676,19 @@ class CanvasOperator(object):
     def selectKrakenTransformSkeleton(self, index, inputPort, bone):
         select_preset_path = "Kraken.KrakenAnimation.SelectKrakenTransform"
         tmpPath = "{}|{}".format(self.containerNodeName, "SelectKrakenTransform")
-        bind = self.rigGraph.dfgBinding
 
         try:
-            selectExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, self.selectKrakenTransformNodeName))
-            # rtVal = selectExec.getPortDefaultValue("indice", "UInt32[]")
-            rtVal = selectExec.getPortDefaultValue("indice", "UInt32[]")
-            # size = rtVal.getArraySize()
+            rtVal = self.containerExec.getPortDefaultValue("{}.indice".format(self.selectKrakenTransformNodeName), "UInt32[]")
             size = len(rtVal)
             rtVal.resize(size + 1)
             rtVal[size] = bone.id
-            # selectExec.setPortDefaultValue("indice", rtVal, False)
-            bind.setArgValue("Solvers_2.{}.{}.indice".format(self.containerNodeName, self.selectKrakenTransformNodeName), rtVal, False)
+            self.containerExec.setPortDefaultValue("{}.indice".format(self.selectKrakenTransformNodeName), rtVal, False)
 
         except AttributeError:
             self.selectKrakenTransformNodeName = self.rigGraph.createNodeFromPreset(
                 tmpPath, select_preset_path, self.solverNodeName, dfgExec=self.containerExec)
-            selectExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, self.selectKrakenTransformNodeName))
-            rtVal = selectExec.getPortDefaultValue("indice", "UInt32[]")
-            rtVal.resize(1)
-            rtVal[0] = bone.id
-            # selectExec.setPortDefaultValue("indice", rtVal, False)
-            bind.setArgValue("Solvers_2.{}.{}.indice".format(self.containerNodeName, self.selectKrakenTransformNodeName), rtVal, False)
+            rtVal = self.client.RT.types.UInt32.createArray([bone.id])
+            self.containerExec.setPortDefaultValue("{}.indice".format(self.selectKrakenTransformNodeName), rtVal, False)
 
     def updateKrakenTransformSkeleton(self, index, inputPort, bone):
         update_preset_path = "Kraken.KrakenAnimation.UpdateKrakenTransform"
@@ -698,14 +697,22 @@ class CanvasOperator(object):
         update = self.rigGraph.createNodeFromPreset(
             tmpPath, update_preset_path, self.solverNodeName, dfgExec=self.containerExec)
 
+        def _searchGetterIndex(id):
+            tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
+            get = self.rigGraph.getNode(tmpPath, title="get{}".format(str(id)), dfgExec=self.containerExec)
+            if get is not None:
+                return _searchGetterIndex(id + 1)
+            else:
+                return id
+
         if index is not -1:
-            tmpPath = "{}|{}|{}".format(self.containerNodeName, "UpdateKrakenTransform", "get{}".format(str(index)))
+            tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
+            index = _searchGetterIndex(index)
             get = self.rigGraph.createNodeFromPreset(
-                tmpPath, "Fabric.Core.Array.Get", self.solverNodeName, dfgExec=self.containerExec)
+                tmpPath, "Fabric.Core.Array.Get", "get{}".format(str(index)), dfgExec=self.containerExec)
 
             rtVal = ks.rtVal("UInt32", index)
-            getExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, get))
-            getExec.setPortDefaultValue("index", rtVal, False)
+            self.containerExec.setPortDefaultValue("{}.index".format(get), rtVal, False)
 
             self.rigGraph.connectNodes(
                 self.solverSolveNodeName, inputPort, get, "array", dfgExec=self.containerExec)
@@ -718,5 +725,7 @@ class CanvasOperator(object):
                 self.solverSolveNodeName, inputPort, update, "element", dfgExec=self.containerExec)
 
         rtVal = ks.rtVal("UInt32", bone.id)
-        updateExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, update))
-        updateExec.setPortDefaultValue("index", rtVal, False)
+        self.containerExec.setPortDefaultValue("{}.index".format(update), rtVal, False)
+
+        # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
+        self.containerExec.connectTo("{}.exec".format(update), ".exec")
