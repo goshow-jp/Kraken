@@ -54,7 +54,6 @@ class CanvasOperator(object):
         self.setOperatorCode(kOperator, buildName)
         self.buildCache(kOperator, buildName)
 
-        # if not self.hasMixedInput():
         if self.hasNormalInput():
             self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
 
@@ -802,5 +801,4 @@ class CanvasOperator(object):
 
     def hasNormalInput(self):
         abstract, normal = self.countInputType()
-        print self.buildName, normal, abstract
         return 0 < normal
