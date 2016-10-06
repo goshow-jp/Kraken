@@ -54,13 +54,11 @@ class CanvasOperator(object):
         self.setOperatorCode(kOperator, buildName)
         self.buildCache(kOperator, buildName)
 
-        try:
-            self.selectKrakenTransformNodeName
-        except AttributeError:
+        # if not self.hasMixedInput():
+        if self.hasNormalInput():
             self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
 
         try:
-            # self.ifCachedUpdate
             self.rigGraph.getExec().connectTo("{}.exec2".format(self.containerNodeName), ".exec")
         except AttributeError:
             pass
@@ -219,6 +217,7 @@ class CanvasOperator(object):
                     composeInputArray.addExecPort(x['opObject'].getName(), self.client.DFG.PortTypes.In, "Mat44")
                     decomposeInputArray.addExecPort(x['opObject'].getName(), self.client.DFG.PortTypes.Out, "Mat44")
             else:
+
                 composeInputArray.addExecPort(input[0], self.client.DFG.PortTypes.In, "Mat44")
                 decomposeInputArray.addExecPort(input[0], self.client.DFG.PortTypes.Out, "Mat44")
 
@@ -227,6 +226,14 @@ class CanvasOperator(object):
 
                 self.rigGraph.connectNodes("", input[0], inputArrayNodeNameIn, input[0], dfgExec=self.containerExec)
                 self.rigGraph.connectNodes(inputArrayNodeNameOut, input[0], self.solverSolveNodeName, input[0], dfgExec=self.containerExec)
+
+                # select in array of KrakenTransform
+                if type(input[1]['dccSceneItem']) == AbstractBone:
+                    tmpPath = "{}|{}".format(self.containerNodeName, inputArrayNodeNameIn)
+                    sel = self.rigGraph.createNodeFromPreset(
+                        tmpPath, "Fabric.Core.Array.Get", "selectKrakenTransform{}".format(str(i)),  dfgExec=self.containerExec)
+                    self.rigGraph.connectNodes(self.selectKrakenTransformNodeName, "result", sel, "array", dfgExec=self.containerExec)
+                    self.rigGraph.connectNodes(sel, "element", inputArrayNodeNameIn, input[0], dfgExec=self.containerExec)
 
         compInputArrayCode = "dfgEntry {{\n{}\n}}".format(compCode)
         decompInputArrayCode = "dfgEntry {{\n{}\n}}".format(decompCode)
@@ -308,13 +315,9 @@ class CanvasOperator(object):
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(self.outputCacheNodeName), ".exec")
 
-        try:
-            # FIXME: cause crash while build
+        if self.hasAbstractOnlyInput():
             self.rigGraph.connectNodes(
                 self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
-            pass
-        except AttributeError:
-            pass
 
         try:
             self.rigGraph.connectNodes(
@@ -687,6 +690,7 @@ class CanvasOperator(object):
 
         if isinstance(opObject, Attribute):
             pm.connectAttr(src, dccSceneItem)
+
         elif isinstance(opObject, Object3D):
             decomposeNode = pm.createNode('decomposeMatrix')
             pm.connectAttr(src,
@@ -729,18 +733,10 @@ class CanvasOperator(object):
             tmpPath, update_preset_path, self.solverNodeName, dfgExec=self.containerExec)
 
         tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
-        self.ifCachedUpdate = self.rigGraph.getNode(tmpPath, title="If", dfgExec=self.containerExec)
-        if not self.ifCachedUpdate:
-            self.ifCachedUpdate = self.rigGraph.createNodeFromPreset(
-                tmpPath, "Fabric.Core.Control.If", "If", dfgExec=self.containerExec)
-
-            self.containerExec.connectTo("{}.result".format(self.ifCachedUpdate), ".{}".format(self.outExec2ndPort))
-
-            tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
+        self.mergeUpdateExec = self.rigGraph.getNode(tmpPath, title="Merge", dfgExec=self.containerExec)
+        if not self.mergeUpdateExec:
             self.mergeUpdateExec = self.rigGraph.createNodeFromPreset(
                 tmpPath, "Fabric.Exts.FabricInterfaces.Execute.Merge", "Merge", dfgExec=self.containerExec)
-            self.rigGraph.connectNodes(
-                self.mergeUpdateExec, "result", self.ifCachedUpdate, "if_false", dfgExec=self.containerExec)
 
         def _searchGetterIndex(id):
             tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
@@ -774,3 +770,37 @@ class CanvasOperator(object):
 
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(update), "{}.this".format(self.mergeUpdateExec))
+
+    def countInputType(self):
+        abstract = 0
+        normal = 0
+
+        for i, input in enumerate(self.inputControls):
+            if isinstance(input[1], list):
+                # array input
+                for x in input[1]:
+                    if type(x['dccSceneItem']) == AbstractBone:
+                        abstract += 1
+                    else:
+                        normal += 1
+
+            else:
+                if type(input[1]['dccSceneItem']) == AbstractBone:
+                    abstract += 1
+                else:
+                    normal += 1
+
+        return [abstract, normal]
+
+    def hasMixedInput(self):
+        abstract, normal = self.countInputType()
+        return (0 < abstract) and (0 < normal)
+
+    def hasAbstractOnlyInput(self):
+        abstract, normal = self.countInputType()
+        return (0 < abstract) and (0 == normal)
+
+    def hasNormalInput(self):
+        abstract, normal = self.countInputType()
+        print self.buildName, normal, abstract
+        return 0 < normal
