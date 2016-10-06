@@ -99,6 +99,20 @@ class GraphManager(object):
 
         return self.__dfgNodes[dfgExec].get(lookup, None)
 
+    def getNodesUnderPath(self, path, title=None, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        lookup = path
+        if title is not None:
+            lookup = "%s|%s" % (path, title)
+
+        res = []
+        for n in self.__dfgNodes[dfgExec]:
+            if n.startswith(lookup):
+                res.append(n)
+        return res
+
     def getNodeSI(self, kSceneItem, title=None, dfgExec=None):
         if not dfgExec:
             dfgExec = self.__dfgExec
@@ -570,6 +584,24 @@ class GraphManager(object):
             return
         self.__dfgGroups[self.__dfgCurrentGroup].append(node)
 
+    def changeGroup(self, path, group, dfgExec=None):
+        if not self.__dfgGroups.has_key(group):
+            self.__dfgGroups[group] = []
+            self.__dfgGroupNames.append(group)
+
+        nodes = self.getNodesUnderPath(path, dfgExec=dfgExec)
+
+        def _inner(n):
+            for gn, gv in self.__dfgGroups.iteritems():
+                for g in gv:
+                    if n.startswith(g):
+                        gv.remove(g)
+                        yield g
+
+        for n in nodes:
+            for g in _inner(n):
+                self.__dfgGroups[group].append(g)
+
     def getAllNodeNames(self, dfgExec=None):
         if not dfgExec:
             dfgExec = self.__dfgExec
@@ -722,7 +754,6 @@ class GraphManager(object):
             nodes = self.__dfgGroups[group]
 
             implodedName = dfgExec.implodeNodes(group, nodes)
-            break # todo... right now this doesn't work properly
 
             # todo
             # # rename the ports based on their source metadata

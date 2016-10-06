@@ -54,13 +54,7 @@ class CanvasOperator(object):
         self.setOperatorCode(kOperator, buildName)
         self.buildCache(kOperator, buildName)
 
-        if self.hasNormalInput():
-            self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
-
-        try:
-            self.rigGraph.getExec().connectTo("{}.exec2".format(self.containerNodeName), ".exec")
-        except AttributeError:
-            pass
+        self.finalize()
 
     def buildBase(self, kOperator, buildName, rigGraph):
         self.client = ks.getCoreClient()
@@ -125,6 +119,18 @@ class CanvasOperator(object):
         tmpPath = "{}|{}".format(self.containerNodeName, kOperator.getPresetPath())
         self.graphNodeName = self.rigGraph.createNodeFromPreset(
             tmpPath, kOperator.getPresetPath(), self.solverNodeName, dfgExec=self.containerExec)
+
+    def finalize(self):
+        if self.hasNormalInput():
+            self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
+
+        try:
+            self.rigGraph.getExec().connectTo("{}.exec2".format(self.containerNodeName), ".exec")
+        except AttributeError:
+            pass
+
+        if self.isConnectOnlyOnDeformer():
+            self.rigGraph.changeGroup("{}".format(self.buildName), "Deformers", dfgExec=self.containerExec)
 
     def getPortCount(self, kOperator):
         if self.isKLBased is True:
@@ -802,3 +808,21 @@ class CanvasOperator(object):
     def hasNormalInput(self):
         abstract, normal = self.countInputType()
         return 0 < normal
+
+    def getOutputLayers(self):
+        layers = []
+        for i, input in enumerate(self.outputControls):
+            if isinstance(input[1], list):
+                # array input
+                for x in input[1]:
+                    layers.append(x['opObject'].getLayer().getName())
+
+            else:
+                layers.append(input[1]['opObject'].getLayer().getName())
+
+        return list(set(layers))
+
+    def isConnectOnlyOnDeformer(self):
+        layers = self.getOutputLayers()
+
+        return len(layers) == 1 and "deformers" in layers[0].lower()

@@ -901,8 +901,6 @@ class Builder(Builder):
         self.rigGraph.addExtDep('Kraken')
         self.rigGraph.setNodeAndPort('', '', 'drawDebug')
 
-        self.solverContainer = self.rigGraph.createGraphNode("", "Solvers")
-
         drawDebugPort = pm.FabricCanvasAddPort(mayaNode=self.rigGraph.nodeName,
                                                execPath="",
                                                desiredPortName="drawDebug",
