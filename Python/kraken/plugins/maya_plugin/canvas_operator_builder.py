@@ -59,6 +59,12 @@ class CanvasOperator(object):
         except AttributeError:
             self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
 
+        try:
+            # self.ifCachedUpdate
+            self.rigGraph.getExec().connectTo("{}.exec2".format(self.containerNodeName), ".exec")
+        except AttributeError:
+            pass
+
     def buildBase(self, kOperator, buildName, rigGraph):
         self.client = ks.getCoreClient()
         # Create Canvas Operator
@@ -296,6 +302,12 @@ class CanvasOperator(object):
         self.rigGraph.connectNodes(
             self.inputCacheNodeName, "isCached", self.outputCacheNodeName, "isCached", dfgExec=self.containerExec)
 
+        self.rigGraph.connectNodes(
+            self.inputCacheNodeName, "exec", self.outputCacheNodeName, "exec", dfgExec=self.containerExec)
+
+        # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
+        self.containerExec.connectTo("{}.exec".format(self.outputCacheNodeName), ".exec")
+
         try:
             # FIXME: cause crash while build
             self.rigGraph.connectNodes(
@@ -304,7 +316,26 @@ class CanvasOperator(object):
         except AttributeError:
             pass
 
+        try:
+            self.rigGraph.connectNodes(
+                self.outputCacheNodeName, "isCached", self.ifCachedUpdate, "cond", dfgExec=self.containerExec)
+        except AttributeError:
+            pass
+
+        try:
+            self.rigGraph.connectNodes(
+                self.mergeUpdateExec, "result", self.outputCacheNodeName, "if_false", dfgExec=self.containerExec)
+        except AttributeError:
+            pass
+
     def buildPorts(self, kOperator, buildName):
+        self.outExec2ndPort = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
+                                                     execPath=self.containerNodeName,
+                                                     desiredPortName="exec2",
+                                                     portType="Out",
+                                                     typeSpec="Execute",
+                                                     connectToPortPath="")
+
         for i in xrange(self.getPortCount(kOperator)):
             self._forEachPort(kOperator, buildName, i)
 
@@ -692,10 +723,24 @@ class CanvasOperator(object):
 
     def updateKrakenTransformSkeleton(self, index, inputPort, bone):
         update_preset_path = "Kraken.KrakenAnimation.UpdateKrakenTransform"
-        tmpPath = "{}|{}|{}".format(self.containerNodeName, "UpdateKrakenTransform", bone.shortName)
 
+        tmpPath = "{}|{}|{}".format(self.containerNodeName, "UpdateKrakenTransform", bone.shortName)
         update = self.rigGraph.createNodeFromPreset(
             tmpPath, update_preset_path, self.solverNodeName, dfgExec=self.containerExec)
+
+        tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
+        self.ifCachedUpdate = self.rigGraph.getNode(tmpPath, title="If", dfgExec=self.containerExec)
+        if not self.ifCachedUpdate:
+            self.ifCachedUpdate = self.rigGraph.createNodeFromPreset(
+                tmpPath, "Fabric.Core.Control.If", "If", dfgExec=self.containerExec)
+
+            self.containerExec.connectTo("{}.result".format(self.ifCachedUpdate), ".{}".format(self.outExec2ndPort))
+
+            tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
+            self.mergeUpdateExec = self.rigGraph.createNodeFromPreset(
+                tmpPath, "Fabric.Exts.FabricInterfaces.Execute.Merge", "Merge", dfgExec=self.containerExec)
+            self.rigGraph.connectNodes(
+                self.mergeUpdateExec, "result", self.ifCachedUpdate, "if_false", dfgExec=self.containerExec)
 
         def _searchGetterIndex(id):
             tmpPath = "{}|{}".format(self.containerNodeName, "UpdateKrakenTransform")
@@ -728,4 +773,4 @@ class CanvasOperator(object):
         self.containerExec.setPortDefaultValue("{}.index".format(update), rtVal, False)
 
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
-        self.containerExec.connectTo("{}.exec".format(update), ".exec")
+        self.containerExec.connectTo("{}.exec".format(update), "{}.this".format(self.mergeUpdateExec))

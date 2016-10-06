@@ -24,7 +24,7 @@ class MayaGraphManager(GraphManager):
         super(MayaGraphManager, self).__init__()
 
         canvasNode = pm.createNode('canvasNode', name=nodeName)
-        mel.eval('setAttr "{}.nodeState" 1;'.format(nodeName))
+        # mel.eval('setAttr "{}.nodeState" 1;'.format(nodeName))
         ctxtId = mel.eval('FabricCanvasGetContextID;')
         bindId = mel.eval('FabricCanvasGetBindingID -node "{}";'.format(canvasNode))
         client = core.createClient({'contextID': ctxtId, 'guarded': True})

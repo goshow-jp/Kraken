@@ -13,24 +13,38 @@ function KrakenInputCache() {
 
 function KrakenInputCache.update!( in Mat44[] input, out Mat44[] output, out Boolean isCached ){
 
+  if( this.cache.size() == 0 ){
+    this.isCached = false;
+    this.cache.resize(input.size());
+  }
+
+  if( input.size() == 0 ){
+    this.isCached = false;
+    return;
+  }
+
   if( this.cache.size() != input.size() ){
     this.cache.resize( input.size() );
   }
 
-  output.resize( input.size() );
-
-  this.isCached = true;
   for( Index i; i < input.size(); i++ ){
+
+    if ( i == (input.size() - 1) ){
+      this.isCached = true;
+    }
 
     if( this.cache[i] != input[i] ){
       this.isCached = false;
-      this.cache[i] = input[i];
+      break;
     }
-
-    //output[i] = this.cache[i];
   }
-  output = this.cache;
+
+  if ( !this.isCached ){
+    output = input;
+    this.cache = input;
+  } else {
+    output = this.cache;
+  }
 
   isCached = this.isCached;
-
 }
