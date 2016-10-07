@@ -1,26 +1,39 @@
-// Created by kl2dfg (processFunction)
 {
   "objectType" : "Func",
   "metadata" : {
+    "camera_mat44" : "{\n  \"row0\" : {\n    \"x\" : 0.7999999523162842,\n    \"y\" : -0.2228344082832336,\n    \"z\" : 0.5570860505104065,\n    \"t\" : 30\n    },\n  \"row1\" : {\n    \"x\" : -1.490116119384766e-08,\n    \"y\" : 0.9284766912460327,\n    \"z\" : 0.3713906705379486,\n    \"t\" : 20\n    },\n  \"row2\" : {\n    \"x\" : -0.6000000834465027,\n    \"y\" : -0.2971125543117523,\n    \"z\" : 0.7427813410758972,\n    \"t\" : 40\n    },\n  \"row3\" : {\n    \"x\" : 0,\n    \"y\" : 0,\n    \"z\" : 0,\n    \"t\" : 1\n    }\n  }",
     "uiNodeColor" : "{\n  \"r\" : 99,\n  \"g\" : 129,\n  \"b\" : 92\n  }",
-    "uiTooltip" : "Supported types:\n  offset: Xfo\n  result: KrakenPoseConstraint\n"
+    "timeline_start" : "1",
+    "timeline_loopMode" : "1",
+    "timeline_simMode" : "0",
+    "camera_focalDistance" : "53.85164642333984",
+    "uiTooltip" : "Supported types:\n  offset: Xfo\n  result: KrakenPoseConstraint\n",
+    "timeline_current" : "1",
+    "timeline_end" : "250"
     },
   "title" : "KrakenPoseConstraint",
   "ports" : [
     {
-      "objectType" : "Port",
+      "objectType" : "ExecPort",
+      "name" : "exec",
+      "nodePortType" : "IO",
+      "execPortType" : "IO",
+      "typeSpec" : "Execute"
+      },
+    {
+      "objectType" : "ExecPort",
       "metadata" : {
         "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
         },
-      "nodePortType" : "Out",
       "name" : "offset",
+      "nodePortType" : "Out",
       "execPortType" : "In",
-      "typeSpec" : "Xfo"
+      "typeSpec" : "$TYPE$"
       },
     {
-      "objectType" : "Port",
-      "nodePortType" : "In",
+      "objectType" : "ExecPort",
       "name" : "result",
+      "nodePortType" : "In",
       "execPortType" : "Out",
       "typeSpec" : "KrakenPoseConstraint"
       }
@@ -34,5 +47,17 @@
 dfgEntry {
   result = KrakenPoseConstraint(offset);
 }
-"
+",
+  "args" : [
+    {
+      "type" : "Xfo",
+      "value" : null,
+      "ext" : "Math"
+      },
+    {
+      "type" : "KrakenPoseConstraint",
+      "value" : null,
+      "ext" : "KrakenForCanvas"
+      }
+    ]
   }
