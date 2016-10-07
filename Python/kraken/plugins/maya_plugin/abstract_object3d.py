@@ -29,6 +29,7 @@ class AbstractSkeleton(Object3D):
 
         self.canvasNode = canvasNode
         self._boneCount = 0
+        self.bones = {}
 
         buildName = '{}Skeleton'.format(buildName)
 
@@ -118,6 +119,7 @@ class AbstractSkeleton(Object3D):
         abstractBone.setAddBoneNode(addBone)
         abstractBone.setBoneIndex(self._boneCount)
         self.setLastBoneNode(addBone)
+        self.bones[abstractBone.buildName] = abstractBone
         self._boneCount += 1
 
 
@@ -129,6 +131,7 @@ class AbstractBone(Object3D):
         self.canvasNode = skeleton.getNode()
         self.buildName = buildName
         self.shortName = kSceneItem.getName()
+        self.path = kSceneItem.getPath()
 
         self.xfo = kSceneItem.xfo
         self._index = -1

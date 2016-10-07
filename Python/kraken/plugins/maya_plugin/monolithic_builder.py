@@ -14,6 +14,7 @@ from kraken.log import getLogger
 from kraken.core.configs.config import Config
 
 # from kraken.core.maths import Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
+from kraken.core.maths import Xfo
 
 from kraken.core.builder import Builder
 from kraken.core.objects.object_3d import Object3D
@@ -23,6 +24,7 @@ from kraken.core.objects.components.component import Component
 from kraken.plugins.maya_plugin.graph_manager import MayaGraphManager
 from kraken.plugins.maya_plugin.abstract_object3d import AbstractBone, AbstractSkeleton
 from kraken.plugins.maya_plugin.canvas_operator_builder import CanvasOperator
+from kraken.plugins.maya_plugin.constraint_builder import CanvasConstraint
 
 import pymel.core as pm
 import pymel.core.datatypes as dt
@@ -606,6 +608,13 @@ class Builder(Builder):
 
         """
 
+        if self.isConstrainPartOfComponentIO(kConstraint):
+            self.buildNodeConstraint(kConstraint, buildName)
+
+        else:
+            self.buildDccOrientationConstraint(kConstraint, buildName)
+
+    def buildDccOrientationConstraint(self, kConstraint, buildName):
         constraineeDCCSceneItem = self.getDCCSceneItem(kConstraint.getConstrainee())
         dccSceneItem = pm.orientConstraint(
             [self.getDCCSceneItem(x) for x in kConstraint.getConstrainers()],
@@ -652,25 +661,17 @@ class Builder(Builder):
             bool: True if successful.
 
         """
-        comp = self._searchComponentWithin(kConstraint)
+        # comp = self._searchComponentWithin(kConstraint)
 
-        if self.isConstrainBetweenComponentIO(kConstraint):
-            constrainee = kConstraint.getConstrainee()
-            constrainers = kConstraint.getConstrainers()
-            src = self.getDCCSceneItem(constrainers[0])
-            dst = self.getDCCSceneItem(constrainee)
-
-        elif self.isConstrainPartOfComponentIO(kConstraint):
-            constrainee = kConstraint.getConstrainee()
-            constrainers = kConstraint.getConstrainers()
-            src = self.getDCCSceneItem(constrainers[0])
-            dst = self.getDCCSceneItem(constrainee)
+        if self.isConstrainPartOfComponentIO(kConstraint):
+            self.buildNodeConstraint(kConstraint, buildName)
 
         else:
             self.buildDccPoseConstraint(kConstraint, buildName)
 
     def buildNodeConstraint(self, kConstraint, buildName):
-        pass
+        cns = CanvasConstraint(self, kConstraint, buildName, self.rigGraph)
+        return cns
 
     def buildDccPoseConstraint(self, kConstraint, buildName):
         constraineeDCCSceneItem = self.getDCCSceneItem(kConstraint.getConstrainee())
@@ -755,11 +756,11 @@ class Builder(Builder):
             bool: True if successful.
 
         """
+        if self.isConstrainPartOfComponentIO(kConstraint):
+            self.buildNodeConstraint(kConstraint, buildName)
 
-        pass
-
-    def buildNodePositionConstraint(self, kConstraint, buildName):
-        pass
+        else:
+            self.buildDccPositionConstraint(kConstraint, buildName)
 
     def buildDccPositionConstraint(self, kConstraint, buildName):
         constraineeDCCSceneItem = self.getDCCSceneItem(kConstraint.getConstrainee())
@@ -782,6 +783,13 @@ class Builder(Builder):
         return dccSceneItem
 
     def buildScaleConstraint(self, kConstraint, buildName):
+        if self.isConstrainPartOfComponentIO(kConstraint):
+            self.buildNodeConstraint(kConstraint, buildName)
+
+        else:
+            self.buildDccScaleConstraint(kConstraint, buildName)
+
+    def buildDccScaleConstraint(self, kConstraint, buildName):
         """Builds an scale constraint represented by the kConstraint.
 
         Args:
@@ -902,9 +910,11 @@ class Builder(Builder):
         self.rigGraph.getOrCreateArgument("drawDebug", dataType="Boolean", defaultValue=False, portType="In")
         self.rigGraph.getOrCreateArgument("rigScale", dataType="Float32", defaultValue=1.0, portType="In")
 
+    '''
     def buildConstraintContainer(self, buildName):
 
         self.constraintContainer = self.rigGraph.createGraphNode("", "Constraints")
+    '''
 
     # ==================
     # Parameter Methods
@@ -1215,7 +1225,6 @@ class Builder(Builder):
 
         self.buildCanvasContainer("{}Canvas".format(self.__rigTitle))
         self.buildSkeletonContainer("{}Skeleton".format(self.__rigTitle))
-        self.buildConstraintContainer("{}Constraints".format(self.__rigTitle))
 
         return True
 

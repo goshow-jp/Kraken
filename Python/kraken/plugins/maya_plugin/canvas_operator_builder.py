@@ -40,12 +40,22 @@ class CanvasOperator(object):
         self.isKLBased = isKLBased
         self.rigGraph = rigGraph
         self.rigGraph.setCurrentGroup(None)
+        self.canvasNodeName = self.rigGraph.nodeName
+        self.buildName = buildName
+        self.client = ks.getCoreClient()
+        self.config = Config.getInstance()
+
+        self.initialize(kOperator)
+        self.build(kOperator, buildName)
+        self.finalize()
+
+    def initialize(self, kOperator):
         self.inputControls = []
         self.outputControls = []
-        self.buildName = buildName
         self.isIntegrateDrawDebugAndRigScale = True
 
-        self.buildBase(kOperator, buildName, rigGraph)
+    def build(self, kOperator, buildName):
+        self.buildBase(kOperator, buildName, self.rigGraph)
         if self.isKLBased:
             self.buildKLBasedBase(kOperator, buildName)
         else:
@@ -55,20 +65,15 @@ class CanvasOperator(object):
         self.setOperatorCode(kOperator, buildName)
         self.buildCache(kOperator, buildName)
 
-        self.finalize()
-
     def buildBase(self, kOperator, buildName, rigGraph):
-        self.client = ks.getCoreClient()
         # Create Canvas Operator
-        # canvasNode = pm.createNode('canvasNode', name=buildName)
-        # self._registerSceneItemPair(kOperator, pm.PyNode(canvasNode))
-        self.canvasNode = self.rigGraph.nodeName
+        # canvasNodeName = pm.createNode('canvasNodeName', name=buildName)
+        # self._registerSceneItemPair(kOperator, pm.PyNode(canvasNodeName))
         self.rigGraph.setCurrentGroup("Solvers")
         self.containerNodeName = self.rigGraph.createGraphNodeSI(kOperator, buildName)
         self.rigGraph.setCurrentGroup(None)
         self.containerExec = self.rigGraph.getSubExec(self.containerNodeName)
 
-        self.config = Config.getInstance()
         self.nameTemplate = self.config.getNameTemplate()
         typeTokens = self.nameTemplate['types']
         opTypeToken = typeTokens.get(type(kOperator).__name__, 'op')
@@ -100,8 +105,7 @@ class CanvasOperator(object):
         solverVarName = self.rigGraph.createVariableNode(
             tmpPath, tmpTitle, solverTypeName, extension=kOperator.getExtension(), dfgExec=self.containerExec)
 
-        self.rigGraph.connectNodes(
-            self.solverNodeName, "solver", solverVarName, "value", dfgExec=self.containerExec)
+        self.conn(self.solverNodeName, "solver", solverVarName, "value")
 
         # Crate Solver "Solve" Function Node
         tmpPath = "{}|{}|{}".format(kOperator.getPath(), buildName, self.solverSolveNodeName)
@@ -110,10 +114,8 @@ class CanvasOperator(object):
         solverSolveExec.setCode("dfgEntry {}")
         solverSolveExec.addExecPort("solver", self.client.DFG.PortTypes.IO, solverTypeName)
 
-        self.rigGraph.connectNodes(
-            solverVarName, "value", self.solverSolveNodeName, "solver", dfgExec=self.containerExec)
-        self.rigGraph.connectNodes(
-            self.solverSolveNodeName, "solver", "", "exec", dfgExec=self.containerExec)
+        self.conn(solverVarName, "value", self.solverSolveNodeName, "solver")
+        self.conn(self.solverSolveNodeName, "solver", "", "exec")
 
     def buildPresetBasedBase(self, kOperator, buildName):
 
@@ -200,8 +202,8 @@ class CanvasOperator(object):
         for i, input in enumerate(self.inputControls):
             if isinstance(input[1], list) and len(self.inputControls) == 1:
                 needArrayBuilder = False
-                self.rigGraph.connectNodes("", input[0], self.inputCacheNodeName, "input", dfgExec=self.containerExec)
-                self.rigGraph.connectNodes(self.inputCacheNodeName, "result", self.solverSolveNodeName, input[0], dfgExec=self.containerExec)
+                self.conn("", input[0], self.inputCacheNodeName, "input")
+                self.conn(self.inputCacheNodeName, "result", self.solverSolveNodeName, input[0])
                 break
         else:
             needArrayBuilder = True
@@ -235,26 +237,24 @@ class CanvasOperator(object):
                 compCode += "  result[ {} ] = {};\n".format(i, input[0])
                 decompCode += "  {} = result[ {} ];\n".format(input[0], i)
 
-                self.rigGraph.connectNodes("", input[0], inputArrayNodeNameIn, input[0], dfgExec=self.containerExec)
-                self.rigGraph.connectNodes(inputArrayNodeNameOut, input[0], self.solverSolveNodeName, input[0], dfgExec=self.containerExec)
+                self.conn("", input[0], inputArrayNodeNameIn, input[0])
+                self.conn(inputArrayNodeNameOut, input[0], self.solverSolveNodeName, input[0])
 
                 # select in array of KrakenTransform
                 if type(input[1]['dccSceneItem']) == AbstractBone:
                     tmpPath = "{}|{}".format(self.containerNodeName, inputArrayNodeNameIn)
                     sel = self.rigGraph.createNodeFromPreset(
-                        tmpPath, "Fabric.Core.Array.Get", "selectKrakenTransform{}".format(str(i)),  dfgExec=self.containerExec)
-                    self.rigGraph.connectNodes(self.selectKrakenTransformNodeName, "result", sel, "array", dfgExec=self.containerExec)
-                    self.rigGraph.connectNodes(sel, "element", inputArrayNodeNameIn, input[0], dfgExec=self.containerExec)
+                        tmpPath, "Fabric.Core.Array.Get", "selectKrakenTransform{}".format(str(i)), dfgExec=self.containerExec)
+                    self.conn(self.selectKrakenTransformNodeName, "result", sel, "array")
+                    self.conn(sel, "element", inputArrayNodeNameIn, input[0])
 
         compInputArrayCode = "dfgEntry {{\n{}\n}}".format(compCode)
         decompInputArrayCode = "dfgEntry {{\n{}\n}}".format(decompCode)
         composeInputArray.setCode(compInputArrayCode)
         decomposeInputArray.setCode(decompInputArrayCode)
 
-        self.rigGraph.connectNodes(
-            inputArrayNodeNameIn, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
-        self.rigGraph.connectNodes(
-            self.inputCacheNodeName, "result", inputArrayNodeNameOut, "result", dfgExec=self.containerExec)
+        self.conn(inputArrayNodeNameIn, "result", self.inputCacheNodeName, "input")
+        self.conn(self.inputCacheNodeName, "result", inputArrayNodeNameOut, "result")
 
     def buildOutputCache(self, kOperator, buildName):
         cache_preset_path = "Kraken.KrakenForCanvas.KrakenOutputCache"
@@ -269,8 +269,8 @@ class CanvasOperator(object):
         for i, output in enumerate(self.outputControls):
             if isinstance(output[1], list) and len(self.outputControls) == 1:
                 needArrayBuilder = False
-                self.rigGraph.connectNodes(self.solverSolveNodeName, output[0], self.outputCacheNodeName, "output", dfgExec=self.containerExec)
-                self.rigGraph.connectNodes(self.outputCacheNodeName, "result", "", output[0], dfgExec=self.containerExec)
+                self.conn(self.solverSolveNodeName, output[0], self.outputCacheNodeName, "output")
+                self.conn(self.outputCacheNodeName, "result", "", output[0])
                 break
         else:
             needArrayBuilder = True
@@ -303,47 +303,40 @@ class CanvasOperator(object):
                 compCode += "  result[ {} ] = {};\n".format(i, pn)
                 decompCode += "  {} = result[ {} ];\n".format(po, i)
 
-                self.rigGraph.connectNodes(self.solverSolveNodeName, output[0], outputArrayNodeNameIn, pn, dfgExec=self.containerExec)
-                self.rigGraph.connectNodes(outputArrayNodeNameOut, po, "", output[0], dfgExec=self.containerExec)
+                self.conn(self.solverSolveNodeName, output[0], outputArrayNodeNameIn, pn)
+                self.conn(outputArrayNodeNameOut, po, "", output[0])
 
         compOutputArrayCode = "dfgEntry {{\n{}\n}}".format(compCode)
         decompOutputArrayCode = "dfgEntry {{\n{}\n}}".format(decompCode)
         composeOutputArray.setCode(compOutputArrayCode)
         decomposeOutputArray.setCode(decompOutputArrayCode)
 
-        self.rigGraph.connectNodes(
-            outputArrayNodeNameIn, "result", self.outputCacheNodeName, "output", dfgExec=self.containerExec)
-        self.rigGraph.connectNodes(
-            self.outputCacheNodeName, "result", outputArrayNodeNameOut, "result", dfgExec=self.containerExec)
+        self.conn(outputArrayNodeNameIn, "result", self.outputCacheNodeName, "output")
+        self.conn(self.outputCacheNodeName, "result", outputArrayNodeNameOut, "result")
 
     def connectCache(self, kOperator, buildName):
-        self.rigGraph.connectNodes(
-            self.inputCacheNodeName, "isCached", self.outputCacheNodeName, "isCached", dfgExec=self.containerExec)
+        self.conn(self.inputCacheNodeName, "isCached", self.outputCacheNodeName, "isCached")
 
-        self.rigGraph.connectNodes(
-            self.inputCacheNodeName, "exec", self.outputCacheNodeName, "exec", dfgExec=self.containerExec)
+        self.conn(self.inputCacheNodeName, "exec", self.outputCacheNodeName, "exec")
 
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(self.outputCacheNodeName), ".exec")
 
         if self.hasAbstractOnlyInput():
-            self.rigGraph.connectNodes(
-                self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input", dfgExec=self.containerExec)
+            self.conn(self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input")
 
         try:
-            self.rigGraph.connectNodes(
-                self.outputCacheNodeName, "isCached", self.ifCachedUpdate, "cond", dfgExec=self.containerExec)
+            self.conn(self.outputCacheNodeName, "isCached", self.ifCachedUpdate, "cond")
         except AttributeError:
             pass
 
         try:
-            self.rigGraph.connectNodes(
-                self.mergeUpdateExec, "result", self.outputCacheNodeName, "if_false", dfgExec=self.containerExec)
+            self.conn(self.mergeUpdateExec, "result", self.outputCacheNodeName, "if_false")
         except AttributeError:
             pass
 
     def buildPorts(self, kOperator, buildName):
-        self.outExec2ndPort = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
+        self.outExec2ndPort = pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                                      execPath=self.containerNodeName,
                                                      desiredPortName="exec2",
                                                      portType="Out",
@@ -374,10 +367,10 @@ class CanvasOperator(object):
 
         # special port
         if portName == 'time':
-            pm.expression(o=self.canvasNode + '.time', s=self.canvasNode + '.time = time;')
+            pm.expression(o=self.canvasNodeName + '.time', s=self.canvasNodeName + '.time = time;')
             return
         if portName == 'frame':
-            pm.expression(o=self.canvasNode + '.frame', s=self.canvasNode + '.frame = frame;')
+            pm.expression(o=self.canvasNodeName + '.frame', s=self.canvasNodeName + '.frame = frame;')
             return
 
         # Get the port's input from the DCC
@@ -392,7 +385,7 @@ class CanvasOperator(object):
     def setOperatorCode(self, kOperator, buildName):
         if self.isKLBased is True:
             opSourceCode = kOperator.generateSourceCode()
-            pm.FabricCanvasSetCode(mayaNode=self.canvasNode,
+            pm.FabricCanvasSetCode(mayaNode=self.canvasNodeName,
                                    execPath="{}.{}".format(self.containerNodeName, self.solverSolveNodeName),
                                    code=opSourceCode)
 
@@ -448,21 +441,21 @@ class CanvasOperator(object):
 
     def addPortForTypeIn(self, kOperator, portName, portDataType):
         if self.isKLBased is True:
-            pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
+            pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                    execPath=self.containerNodeName,
                                    desiredPortName=portName,
                                    portType="In",
                                    typeSpec=portDataType,
                                    connectToPortPath="")
 
-            pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
+            pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                    execPath="{}.{}".format(self.containerNodeName, self.solverSolveNodeName),
                                    desiredPortName=portName,
                                    portType="In",
                                    typeSpec=portDataType,
                                    connectToPortPath="")
 
-            pm.FabricCanvasConnect(mayaNode=self.canvasNode,
+            pm.FabricCanvasConnect(mayaNode=self.canvasNodeName,
                                    execPath=self.containerNodeName,
                                    srcPortPath=portName,
                                    dstPortPath=self.solverSolveNodeName + "." + portName)
@@ -470,7 +463,7 @@ class CanvasOperator(object):
         else:
             if portDataType != 'Execute':
                 pm.FabricCanvasAddPort(
-                    mayaNode=self.canvasNode,
+                    mayaNode=self.canvasNodeName,
                     execPath=self.containerNodeName,
                     desiredPortName=portName,
                     portType="In",
@@ -478,10 +471,10 @@ class CanvasOperator(object):
                     connectToPortPath="")
 
             pm.FabricCanvasConnect(
-                mayaNode=self.canvasNode,
+                mayaNode=self.canvasNodeName,
                 execPath=self.containerNodeName,
                 srcPortPath=portName,
-                dstPortPath=self.graphNodeName + "." + portName)
+                dstPortPath=self.solverSolveNodeName + "." + portName)
 
     def addPortForTypeOut(self, kOperator, portName, portDataType):
 
@@ -494,7 +487,7 @@ class CanvasOperator(object):
             if self.isKLBased is True:
                 srcPortNode = self.solverSolveNodeName
                 pm.FabricCanvasAddPort(
-                    mayaNode=self.canvasNode,
+                    mayaNode=self.canvasNodeName,
                     execPath="{}.{}".format(self.containerNodeName, self.solverSolveNodeName),
                     desiredPortName=portName,
                     portType="Out",
@@ -505,7 +498,7 @@ class CanvasOperator(object):
 
             if portDataType not in ('Execute', 'InlineInstance', 'DrawingHandle'):
                 pm.FabricCanvasAddPort(
-                    mayaNode=self.canvasNode,
+                    mayaNode=self.canvasNodeName,
                     execPath=self.containerNodeName,
                     desiredPortName=portName,
                     portType="Out",
@@ -513,7 +506,7 @@ class CanvasOperator(object):
                     connectToPortPath="")
 
             pm.FabricCanvasConnect(
-                mayaNode=self.canvasNode,
+                mayaNode=self.canvasNodeName,
                 execPath=self.containerNodeName,
                 srcPortPath=srcPortNode + "." + portName,
                 dstPortPath=dstPortPath)
@@ -578,7 +571,7 @@ class CanvasOperator(object):
                     portName,
                     portConnectionType,
                     portDataType,
-                    self.canvasNode + "." + portName + '[' + str(index) + ']',
+                    self.canvasNodeName + "." + portName + '[' + str(index) + ']',
                     connectionTargets[index]['opObject'],
                     connectionTargets[index]['dccSceneItem'],
                     index)
@@ -589,7 +582,7 @@ class CanvasOperator(object):
                 portName,
                 portConnectionType,
                 portDataType,
-                self.canvasNode + "." + portName,
+                self.canvasNodeName + "." + portName,
                 connectionTargets['opObject'],
                 connectionTargets['dccSceneItem'])
 
@@ -599,7 +592,7 @@ class CanvasOperator(object):
     def _connectInput(self, kOperator, buildName, portName, portConnectionType, portDataType, tgt, opObject, dccSceneItem, index=-1):
 
         desiredPortName = "{}_{}".format(buildName, portName)
-        realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
+        realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                               execPath="",
                                               desiredPortName=desiredPortName,
                                               portType=portConnectionType,
@@ -608,18 +601,18 @@ class CanvasOperator(object):
 
         # array nodes, skip
         if realPortName != desiredPortName:
-            pm.FabricCanvasRemovePort(mayaNode=self.canvasNode,
+            pm.FabricCanvasRemovePort(mayaNode=self.canvasNodeName,
                                       execPath="",
                                       portName=realPortName)
             realPortName = desiredPortName
 
         else:
-            pm.FabricCanvasConnect(mayaNode=self.canvasNode,
+            pm.FabricCanvasConnect(mayaNode=self.canvasNodeName,
                                    execPath="",
                                    srcPortPath=realPortName,
                                    dstPortPath="{}.{}".format(self.containerNodeName, portName))
 
-        tgt = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, tgt.split(".")[-1]))
+        tgt = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, tgt.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
             self.selectKrakenTransformSkeleton(index, portName, dccSceneItem)
@@ -651,7 +644,7 @@ class CanvasOperator(object):
                     portName,
                     portConnectionType,
                     portDataType,
-                    str(self.canvasNode + "." + portName) + '[' + str(index) + ']',
+                    str(self.canvasNodeName + "." + portName) + '[' + str(index) + ']',
                     connectionTargets[index]['opObject'],
                     connectionTargets[index]['dccSceneItem'],
                     index)
@@ -662,7 +655,7 @@ class CanvasOperator(object):
                     portName,
                     portConnectionType,
                     portDataType,
-                    str(self.canvasNode + "." + portName),
+                    str(self.canvasNodeName + "." + portName),
                     connectionTargets['opObject'],
                     connectionTargets['dccSceneItem'],
                     -1)
@@ -673,7 +666,7 @@ class CanvasOperator(object):
     def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem, index=-1):
 
         desiredPortName = "{}_{}".format(buildName, portName)
-        realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNode,
+        realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                               execPath="",
                                               desiredPortName=desiredPortName,
                                               portType=portConnectionType,
@@ -682,18 +675,18 @@ class CanvasOperator(object):
 
         # array nodes, skip
         if realPortName != desiredPortName:
-            pm.FabricCanvasRemovePort(mayaNode=self.canvasNode,
+            pm.FabricCanvasRemovePort(mayaNode=self.canvasNodeName,
                                       execPath="",
                                       portName=realPortName)
             realPortName = desiredPortName
 
         else:
-            pm.FabricCanvasConnect(mayaNode=self.canvasNode,
+            pm.FabricCanvasConnect(mayaNode=self.canvasNodeName,
                                    execPath="",
                                    srcPortPath="{}.{}".format(self.containerNodeName, portName),
                                    dstPortPath=realPortName)
 
-        src = "{}.{}".format(self.canvasNode, "{}_{}".format(buildName, src.split(".")[-1]))
+        src = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, src.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
             self.updateKrakenTransformSkeleton(index, portName, dccSceneItem)
@@ -766,15 +759,11 @@ class CanvasOperator(object):
             rtVal = ks.rtVal("UInt32", index)
             self.containerExec.setPortDefaultValue("{}.index".format(get), rtVal, False)
 
-            self.rigGraph.connectNodes(
-                self.solverSolveNodeName, inputPort, get, "array", dfgExec=self.containerExec)
-
-            self.rigGraph.connectNodes(
-                get, "element", update, "element", dfgExec=self.containerExec)
+            self.conn(self.solverSolveNodeName, inputPort, get, "array")
+            self.conn(get, "element", update, "element")
 
         else:
-            self.rigGraph.connectNodes(
-                self.solverSolveNodeName, inputPort, update, "element", dfgExec=self.containerExec)
+            self.conn(self.solverSolveNodeName, inputPort, update, "element")
 
         rtVal = ks.rtVal("UInt32", bone.id)
         self.containerExec.setPortDefaultValue("{}.index".format(update), rtVal, False)
@@ -832,6 +821,17 @@ class CanvasOperator(object):
         layers = self.getOutputLayers()
 
         return len(layers) == 1 and "deformers" in layers[0].lower()
+
+    def conn(self, srcNode, srcPort, dstNode, dstPort):
+        if srcNode is None or dstNode is None:
+            return ""
+
+        return self.rigGraph.connectNodes(
+            srcNode, srcPort, dstNode, dstPort, dfgExec=self.containerExec)
+
+    def addPreset(self, path, preset, title=""):
+        return self.rigGraph.createNodeFromPreset(
+            path, preset, title, dfgExec=self.containerExec)
 
     def integrateDrawDebugAndRigScale(self):
         dfgExec = self.rigGraph.getExec()
