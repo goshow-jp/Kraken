@@ -899,21 +899,8 @@ class Builder(Builder):
         self.__rigGraph = MayaGraphManager(buildName)
         self.rigGraph.setTitle('Rig')
         self.rigGraph.addExtDep('Kraken')
-        self.rigGraph.setNodeAndPort('', '', 'drawDebug')
-
-        drawDebugPort = pm.FabricCanvasAddPort(mayaNode=self.rigGraph.nodeName,
-                                               execPath="",
-                                               desiredPortName="drawDebug",
-                                               portType="In",
-                                               typeSpec="Boolean",
-                                               connectToPortPath="")
-
-        rigScalePort = pm.FabricCanvasAddPort(mayaNode=self.rigGraph.nodeName,
-                                              execPath="",
-                                              desiredPortName="rigScale",
-                                              portType="In",
-                                              typeSpec="Float32",
-                                              connectToPortPath="")
+        self.rigGraph.getOrCreateArgument("drawDebug", dataType="Boolean", defaultValue=False, portType="In")
+        self.rigGraph.getOrCreateArgument("rigScale", dataType="Float32", defaultValue=1.0, portType="In")
 
     def buildConstraintContainer(self, buildName):
 
@@ -1246,5 +1233,6 @@ class Builder(Builder):
 
         super(Builder, self)._postBuild(kSceneItem)
         self.rigGraph.implodeNodesByGroup()
+        self.rigGraph.removeUnpluggedPort()
 
         return True

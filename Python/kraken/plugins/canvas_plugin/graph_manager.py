@@ -781,6 +781,23 @@ class GraphManager(object):
             #                 shouldBreak = True
             #                 break
 
+    def removeUnpluggedPort(self, dfgExec=None):
+        if not dfgExec:
+            dfgExec = self.__dfgExec
+
+        c = dfgExec.getExecPortCount()
+
+        for i in range(c):
+            name = dfgExec.getExecPortName(i)
+            hasDst = dfgExec.hasDstPorts(name)
+            isInput = dfgExec.getPortType(name) is 2
+
+            if isInput and not hasDst:
+                # this may destroy the counter 'c', so restart this process
+                dfgExec.removePort(name)
+                self.removeUnpluggedPort(dfgExec=dfgExec)
+                break
+
     def saveToFile(self, filePath):
         content = self.__dfgBinding.exportJSON()
         open(filePath, "w").write(content)

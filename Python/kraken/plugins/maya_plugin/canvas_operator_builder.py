@@ -43,6 +43,7 @@ class CanvasOperator(object):
         self.inputControls = []
         self.outputControls = []
         self.buildName = buildName
+        self.isIntegrateDrawDebugAndRigScale = True
 
         self.buildBase(kOperator, buildName, rigGraph)
         if self.isKLBased:
@@ -131,6 +132,11 @@ class CanvasOperator(object):
 
         if self.isConnectOnlyOnDeformer():
             self.rigGraph.changeGroup("{}".format(self.buildName), "Deformers", dfgExec=self.containerExec)
+
+        self.rigGraph.removeUnpluggedPort(dfgExec=self.containerExec)
+
+        if self.isIntegrateDrawDebugAndRigScale:
+            self.integrateDrawDebugAndRigScale()
 
     def getPortCount(self, kOperator):
         if self.isKLBased is True:
@@ -826,3 +832,9 @@ class CanvasOperator(object):
         layers = self.getOutputLayers()
 
         return len(layers) == 1 and "deformers" in layers[0].lower()
+
+    def integrateDrawDebugAndRigScale(self):
+        dfgExec = self.rigGraph.getExec()
+
+        dfgExec.connectTo("drawDebug", "{}.drawDebug".format(self.containerNodeName))
+        dfgExec.connectTo("rigScale", "{}.rigScale".format(self.containerNodeName))
