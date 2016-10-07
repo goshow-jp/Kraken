@@ -505,7 +505,7 @@ class GraphManager(object):
             dfgExec = self.__dfgExec
 
         client = ks.getCoreClient()
-        tempPort = self.getOrCreateArgument("temp", portType="Out")
+        tempPort = self.getOrCreateArgument("temp", portType="Out", dfgExec=dfgExec)
         self.connectArg(node, port, tempPort, dfgExec)
 
         errors = json.loads(self.__dfgBinding.getErrors(True))
