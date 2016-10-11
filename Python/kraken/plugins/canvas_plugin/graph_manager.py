@@ -247,21 +247,6 @@ class GraphManager(object):
 
     @dfgExecSetter
     def createGraphNodeSI(self, kSceneItem, title, dfgExec=None, **metaData):
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
-        print kSceneItem
         return self.createGraphNode(kSceneItem.getPath(), title, dfgExec=dfgExec, **metaData)
 
     @dfgExecSetter
@@ -468,9 +453,18 @@ class GraphManager(object):
 
     @dfgExecSetter
     def computeCurrentPortValue(self, node, port, dfgExec=None):
-        # client = ks.getCoreClient()
-        tempPort = self.getOrCreateArgument("temp", portType="Out", dfgExec=dfgExec)
-        self.connectArg(node, port, tempPort, dfgExec)
+
+        if dfgExec != self.getExec():
+            tempPort = self.getOrCreateArgument("temp", portType="Out", dfgExec=dfgExec)
+            self.connectArg(node, port, tempPort, dfgExec)
+
+            rootTempPort = self.getOrCreateArgument("temp", portType="Out")
+            p = dfgExec.getExecPath()
+            self.connectArg(p, "temp", rootTempPort, dfgExec=self.__dfgExec)
+
+        else:
+            tempPort = self.getOrCreateArgument("temp", portType="Out")
+            self.connectArg(node, port, tempPort, dfgExec)
 
         errors = json.loads(self.__dfgBinding.getErrors(True))
         if errors and len(errors) > 0:
@@ -479,6 +473,9 @@ class GraphManager(object):
         self.__dfgBinding.execute()
 
         value = self.__dfgBinding.getArgValue(tempPort)
+
+        if dfgExec != self.getExec():
+            self.removeArgument(rootTempPort, dfgExec)
 
         self.removeArgument(tempPort, dfgExec)
 
@@ -544,6 +541,9 @@ class GraphManager(object):
 
     @dfgExecSetter
     def changeGroup(self, path, group, dfgExec=None):
+        if group not in self.__dfgGroups:
+            self.__dfgGroups[group] = []
+            self.__dfgGroupNames.append(group)
 
         nodes = self.getNodesUnderPath(path, dfgExec=dfgExec)
 
