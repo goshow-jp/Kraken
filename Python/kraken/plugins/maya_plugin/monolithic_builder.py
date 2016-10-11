@@ -9,17 +9,13 @@ import json
 import logging
 
 from kraken.log import getLogger
-
-# from kraken.core.kraken_system import ks
 from kraken.core.configs.config import Config
-
-# from kraken.core.maths import Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
-from kraken.core.maths import Xfo
+from kraken.core.maths import Math_radToDeg, RotationOrder
+# from kraken.core.maths import Xfo, Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
 
 from kraken.core.builder import Builder
 from kraken.core.objects.object_3d import Object3D
 from kraken.core.objects.components.component import Component
-# from kraken.core.objects.attributes.attribute import Attribute
 
 from kraken.plugins.maya_plugin.graph_manager import MayaGraphManager
 from kraken.plugins.maya_plugin.abstract_object3d import AbstractBone, AbstractSkeleton
@@ -662,12 +658,37 @@ class Builder(Builder):
 
         """
         # comp = self._searchComponentWithin(kConstraint)
+        constrainers = kConstraint.getConstrainers()
+        constrainee = kConstraint.getConstrainee()
 
         if self.isConstrainPartOfComponentIO(kConstraint):
             self.buildNodeConstraint(kConstraint, buildName)
 
         else:
             self.buildDccPoseConstraint(kConstraint, buildName)
+
+    def buildPositionConstraint(self, kConstraint, buildName):
+        """Builds an position constraint represented by the kConstraint.
+
+        Args:
+            kConstraint (Object): Kraken constraint object to build.
+
+        Return:
+            bool: True if successful.
+
+        """
+        if self.isConstrainPartOfComponentIO(kConstraint):
+            self.buildNodeConstraint(kConstraint, buildName)
+
+        else:
+            self.buildDccPositionConstraint(kConstraint, buildName)
+
+    def buildScaleConstraint(self, kConstraint, buildName):
+        if self.isConstrainPartOfComponentIO(kConstraint):
+            self.buildNodeConstraint(kConstraint, buildName)
+
+        else:
+            self.buildDccScaleConstraint(kConstraint, buildName)
 
     def buildNodeConstraint(self, kConstraint, buildName):
         cns = CanvasConstraint(self, kConstraint, buildName, self.rigGraph)
@@ -746,22 +767,6 @@ class Builder(Builder):
 
         return dccSceneItem
 
-    def buildPositionConstraint(self, kConstraint, buildName):
-        """Builds an position constraint represented by the kConstraint.
-
-        Args:
-            kConstraint (Object): Kraken constraint object to build.
-
-        Return:
-            bool: True if successful.
-
-        """
-        if self.isConstrainPartOfComponentIO(kConstraint):
-            self.buildNodeConstraint(kConstraint, buildName)
-
-        else:
-            self.buildDccPositionConstraint(kConstraint, buildName)
-
     def buildDccPositionConstraint(self, kConstraint, buildName):
         constraineeDCCSceneItem = self.getDCCSceneItem(kConstraint.getConstrainee())
         dccSceneItem = pm.pointConstraint(
@@ -781,13 +786,6 @@ class Builder(Builder):
         self._registerSceneItemPair(kConstraint, dccSceneItem)
 
         return dccSceneItem
-
-    def buildScaleConstraint(self, kConstraint, buildName):
-        if self.isConstrainPartOfComponentIO(kConstraint):
-            self.buildNodeConstraint(kConstraint, buildName)
-
-        else:
-            self.buildDccScaleConstraint(kConstraint, buildName)
 
     def buildDccScaleConstraint(self, kConstraint, buildName):
         """Builds an scale constraint represented by the kConstraint.
@@ -1241,7 +1239,7 @@ class Builder(Builder):
         """
 
         super(Builder, self)._postBuild(kSceneItem)
-        self.rigGraph.implodeNodesByGroup()
-        self.rigGraph.removeUnpluggedPort()
+        # self.rigGraph.implodeNodesByGroup()
+        # self.rigGraph.removeUnpluggedPort()
 
         return True

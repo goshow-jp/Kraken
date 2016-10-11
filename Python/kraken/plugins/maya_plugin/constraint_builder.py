@@ -11,24 +11,10 @@ import textwrap
 
 from kraken.log import getLogger
 
-# from kraken.core.kraken_system import ks
-# from kraken.core.configs.config import Config
-
-# from kraken.core.maths import Xfo, Mat44
-# from kraken.core.maths import Vec2, Vec3, Xfo, Mat44
-# from kraken.core.maths import Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
-
-# from kraken.core.builder import Builder
-# from kraken.core.objects.object_3d import Object3D
-# from kraken.core.objects.attributes.attribute import Attribute
-
-# from kraken.plugins.maya_plugin.graph_manager import MayaGraphManager
 from kraken.plugins.maya_plugin.abstract_object3d import AbstractBone  # , AbstractSkeleton
 from kraken.plugins.maya_plugin.canvas_operator_builder import CanvasOperator
 
 import pymel.core as pm
-# import pymel.core.datatypes as dt
-# import maya.cmds as cmds
 
 
 logger = getLogger('kraken')
@@ -43,6 +29,8 @@ class CanvasConstraint(CanvasOperator):
         super(CanvasConstraint, self).__init__(builder, kConstraint, buildName, rigGraph, isKLBased=False)
 
     def initialize(self, kConstraint):
+        self.inputControls = []
+        self.outputControls = []
         self.cnsClass = kConstraint.__class__.__name__
         if self.cnsClass not in [
             'OrientationConstraint',
@@ -90,31 +78,10 @@ class CanvasConstraint(CanvasOperator):
             self.conn(neeNode, neePort, self.cnsComputeNodeName, 'constrainee')
 
             if kConstraint.getMaintainOffset():
-                preset = "Kraken.KrakenForCanvas.Constraints.Kraken%s" % self.cnsClass
-                constructNode = self.rigGraph.createNodeFromPreset(
-                    tmpPath, preset, title='constructor', dfgExec=self.containerExec)
-                tempMat = self.rigGraph.createVariableNode(
-                    tmpPath, "tempMat", "Mat44", dfgExec=self.containerExec)
-                self.conn(tempMat, "value", constructNode, "offset")
+                # offset = self.calculateOffset(nerNode, nerPort, neeNode, neePort)
+                offset = self.calculateOffset(constrainers[0], constrainee, nerNode, nerPort, neeNode, neePort)
+                self.rigGraph.setPortDefaultValue(self.cnsComputeNodeName, "offset", offset, dfgExec=self.containerExec)
 
-                preset = "Kraken.KrakenForCanvas.Constraints.ComputeOffsetSimple"
-                computeOffsetNode = self.rigGraph.createNodeFromPreset(
-                    tmpPath, preset, title='computeOffset', dfgExec=self.containerExec)
-
-                self.conn(constructNode, 'result', computeOffsetNode, 'this')
-                self.conn(nerNode, nerPort, computeOffsetNode, 'constrainer')
-                self.conn(neeNode, neePort, computeOffsetNode, 'constrainee')
-
-                '''
-                offset = Xfo(
-                    self.rigGraph.computeCurrentPortValue(computeOffsetNode, 'result', dfgExec=self.containerExec))
-                self.rigGraph.removeNode(tmpPath, title='computeOffset')
-                self.rigGraph.removeNode(tmpPath, title='constructor')
-                self.rigGraph.removeArgument('temp')
-                self.rigGraph.setPortDefaultValue(self.cnsComputeNodeName, "offset", offset)
-                '''
-
-        '''
         else:
             preset = "Kraken.KrakenForCanvas.Constraints.Kraken%s" % self.cnsClass
             constructNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='constructor')
@@ -134,6 +101,7 @@ class CanvasConstraint(CanvasOperator):
                 lastNode = addNode
                 lastPort = 'this'
 
+        '''
             preset = "Kraken.KrakenForCanvas.Constraints.Compute"
             computeNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='compute')
             self.conn(lastNode, lastPort, computeNode, 'this')
@@ -149,7 +117,7 @@ class CanvasConstraint(CanvasOperator):
                 self.rigGraph.setPortDefaultValue(constructNode, "offset", offset)
         '''
 
-        self.placeUpdateBoneNode(neeBone, "result")
+        self.placeUpdateBoneNode(constrainee, neeBone, "result")
         # self.setTransformPortSI(constrainee, computeNode, 'result')
         # self._registerSceneItemPair(kConstraint, computeNode)
 
@@ -241,15 +209,17 @@ class CanvasConstraint(CanvasOperator):
             convCode = textwrap.dedent("""
                 dfgEntry{{
                   result = input[0];
+                  // report( "{}:  " + result.translation() );
                 }}
-            """.format())
+            """.format(self.buildName))
 
         else:
             convCode = textwrap.dedent("""
                 dfgEntry{{
                   result = input[0];
+                  // report( "{}:  " + result.translation() );
                 }}
-            """.format())
+            """.format(self.buildName))
 
         toMat44 = self.rigGraph.createFunctionNode(path, "toMat44", dfgExec=self.containerExec)
         convExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, toMat44))
@@ -260,17 +230,18 @@ class CanvasConstraint(CanvasOperator):
         self.rigGraph.connectNodes(sel, "result", toMat44, i, dfgExec=self.containerExec)
         return toMat44, o
 
-    def placeUpdateBoneNode(self, bone, path):
+    def placeUpdateBoneNode(self, constrainee, bone, path):
 
         if type(bone) == AbstractBone:
             return self.placeUpdateAbstractBoneNode(bone, path)
+
         else:
-            return self.addOutputTransform(bone, path)
+            return self.addOutputTransform(constrainee, bone, path)
 
     def placeUpdateAbstractBoneNode(self, bone, path):
         preset = "Kraken.KrakenAnimation.UpdateKrakenTransform"
         update = self.addPreset(path, preset, title=bone.shortName)
-        rtVal = self.client.RT.types.UInt32.createArray([bone.id])
+        rtVal = self.client.RT.types.UInt32(bone.id)
         self.containerExec.setPortDefaultValue("{}.index".format(update), rtVal, False)
 
         '''
@@ -293,9 +264,71 @@ class CanvasConstraint(CanvasOperator):
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(update), ".exec")
 
-    def addOutputTransform(self, bone, path):
+    def addOutputTransform(self, nee, bone, path):
         i = self.containerExec.addExecPort(str(bone.name()), self.client.DFG.PortTypes.Out, "Mat44")
+        self.conn(self.cnsComputeNodeName, "result", "", bone.name())
+
+        # force evaluate before done connect
+        self.rigGraph.computeCurrentPortValue(self.cnsComputeNodeName, 'result', dfgExec=self.containerExec)
+
+        connTargets = self.prepareConnection(nee)
+        self.makeConnectOutput(self.buildName, bone.name(), "Out", "Mat44", connTargets)
+
         return ["", i]
+
+    def calculateOffset(self, nerBone, neeBone, nodeA, portA, nodeB, portB):
+        tmpPath = "{}".format(self.containerNodeName)
+        removeNodeALater = False
+        removeNodeBLater = False
+
+        if not nodeA:
+            removeNodeALater = True
+            nerMat44 = nerBone.globalXfo.toMat44()
+            preset = "Fabric.Exts.Math.Mat44.ComposeMat44"
+            nodeA = self.rigGraph.createNodeFromPreset(tmpPath, preset, "tempNerMat", dfgExec=self.containerExec)
+            self.containerExec.setPortDefaultValue("{}.row0".format(nodeA), nerMat44.row0.getRTVal(), False)
+            self.containerExec.setPortDefaultValue("{}.row1".format(nodeA), nerMat44.row1.getRTVal(), False)
+            self.containerExec.setPortDefaultValue("{}.row2".format(nodeA), nerMat44.row2.getRTVal(), False)
+            self.containerExec.setPortDefaultValue("{}.row3".format(nodeA), nerMat44.row3.getRTVal(), False)
+            portA = "result"
+
+        if not nodeB:
+            removeNodeBLater = True
+            neeMat44 = neeBone.globalXfo.toMat44()
+            preset = "Fabric.Exts.Math.Mat44.ComposeMat44"
+            nodeB = self.rigGraph.createNodeFromPreset(tmpPath, preset, "tempNeeMat", dfgExec=self.containerExec)
+            self.containerExec.setPortDefaultValue("{}.row0".format(nodeB), neeMat44.row0.getRTVal(), False)
+            self.containerExec.setPortDefaultValue("{}.row1".format(nodeB), neeMat44.row1.getRTVal(), False)
+            self.containerExec.setPortDefaultValue("{}.row2".format(nodeB), neeMat44.row2.getRTVal(), False)
+            self.containerExec.setPortDefaultValue("{}.row3".format(nodeB), neeMat44.row3.getRTVal(), False)
+            portB = "result"
+
+        preset = "Kraken.KrakenForCanvas.Constraints.Kraken%s" % self.cnsClass
+        constructNode = self.rigGraph.createNodeFromPreset(tmpPath, preset, title='constructor', dfgExec=self.containerExec)
+
+        # for resolving type
+        tempMat = self.rigGraph.createVariableNode(tmpPath, "tempMat", "Mat44", dfgExec=self.containerExec)
+        self.conn(tempMat, "value", constructNode, "offset")
+
+        preset = "Kraken.KrakenForCanvas.Constraints.ComputeOffsetSimple"
+        computeOffsetNode = self.rigGraph.createNodeFromPreset(
+            tmpPath, preset, title='computeOffset', dfgExec=self.containerExec)
+
+        self.conn(constructNode, 'result', computeOffsetNode, 'this')
+        self.conn(nodeA, portA, computeOffsetNode, 'constrainer')
+        self.conn(nodeB, portB, computeOffsetNode, 'constrainee')
+        offset = self.rigGraph.computeCurrentPortValue(computeOffsetNode, 'result', dfgExec=self.containerExec)
+        self.rigGraph.removeNode(tmpPath, title='computeOffset', dfgExec=self.containerExec)
+        self.rigGraph.removeNode(tmpPath, title='constructor', dfgExec=self.containerExec)
+        self.rigGraph.removeNode(tmpPath, title=tempMat, dfgExec=self.containerExec)
+        if removeNodeALater:
+            self.rigGraph.removeNode(tmpPath, title="tempNerMat", dfgExec=self.containerExec)
+        if removeNodeBLater:
+            self.rigGraph.removeNode(tmpPath, title="tempNeeMat", dfgExec=self.containerExec)
+        self.rigGraph.removeArgument('temp')
+
+        # print self.buildName, "offset: ", offset
+        return offset
 
     def finalize(self):
         self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")

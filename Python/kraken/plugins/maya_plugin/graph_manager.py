@@ -40,6 +40,7 @@ class MayaGraphManager(GraphManager):
         self._GraphManager__dfgBinding = dfgbinding
         self._GraphManager__dfgExec = dfgexec
         self.__nodeName = canvasNode
+        self.__name__ = "MayaGraphManager"
         self.dfgBinding = dfgbinding
 
     @property

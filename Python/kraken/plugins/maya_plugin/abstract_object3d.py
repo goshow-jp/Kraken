@@ -97,6 +97,7 @@ class AbstractSkeleton(Object3D):
         _setPortVal(boneNode, "name", abstractBone.buildName)
         _setPortVal(boneNode, "buildName", abstractBone.buildName)
         _setPortVal(boneNode, "path", abstractBone.getPath())
+        _setPortVal(boneNode, "xfo", abstractBone.xfo)
 
         addBone = self.rigGraph.createNodeFromPreset(abstractBone.buildName + "push",
                                                      "Fabric.Core.Array.Push",

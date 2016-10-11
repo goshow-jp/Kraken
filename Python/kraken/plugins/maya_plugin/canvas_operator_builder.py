@@ -139,6 +139,7 @@ class CanvasOperator(object):
 
         if self.isIntegrateDrawDebugAndRigScale:
             self.integrateDrawDebugAndRigScale()
+            pm.setAttr(self.canvasNodeName + ".rigScale", 1.0)
 
     def getPortCount(self, kOperator):
         if self.isKLBased is True:
