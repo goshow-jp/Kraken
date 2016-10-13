@@ -14,27 +14,27 @@ def getFloat64FromRTVal(rtVal):
 
 def Mat44ToMMatrix(rtVal):
     return om.MMatrix((
-        (rtVal.row0.x.getSimpleType(), rtVal.row0.y.getSimpleType(), rtVal.row0.z.getSimpleType(), rtVal.row0.t.getSimpleType()),
-        (rtVal.row1.x.getSimpleType(), rtVal.row1.y.getSimpleType(), rtVal.row1.z.getSimpleType(), rtVal.row1.t.getSimpleType()),
-        (rtVal.row2.x.getSimpleType(), rtVal.row2.y.getSimpleType(), rtVal.row2.z.getSimpleType(), rtVal.row2.t.getSimpleType()),
-        (rtVal.row3.x.getSimpleType(), rtVal.row3.y.getSimpleType(), rtVal.row3.z.getSimpleType(), rtVal.row3.t.getSimpleType())
+        (rtVal.row0.x.getSimpleType(), rtVal.row1.x.getSimpleType(), rtVal.row2.x.getSimpleType(), rtVal.row3.x.getSimpleType()),
+        (rtVal.row0.y.getSimpleType(), rtVal.row1.y.getSimpleType(), rtVal.row2.y.getSimpleType(), rtVal.row3.y.getSimpleType()),
+        (rtVal.row0.z.getSimpleType(), rtVal.row1.z.getSimpleType(), rtVal.row2.z.getSimpleType(), rtVal.row3.z.getSimpleType()),
+        (rtVal.row0.t.getSimpleType(), rtVal.row1.t.getSimpleType(), rtVal.row2.t.getSimpleType(), rtVal.row3.t.getSimpleType())
     ))
 
 
 def MMatrixToRtVal(mmat, rtVal):
     rtVal.set(
         'Mat44',
-        mmat[0],  mmat[1],  mmat[2],  mmat[3],
-        mmat[4],  mmat[5],  mmat[6],  mmat[7],
-        mmat[8],  mmat[9],  mmat[10], mmat[11],
-        mmat[12], mmat[13], mmat[14], mmat[15]
+        mmat[0], mmat[4], mmat[8],  mmat[12],
+        mmat[1], mmat[5], mmat[9],  mmat[13],
+        mmat[2], mmat[6], mmat[10], mmat[14],
+        mmat[3], mmat[7], mmat[11], mmat[15]
     )
 
     return rtVal
 
 
-def dfgPlugToPort_compound_convertMat44(mmat, rtVal=None):
-    if not rtVal:
+def dfgPlugToPort_compound_convertMat44(mmat, rtVal=None, f=False):
+    if not f:
         rtVal = client.RT.types.Mat44()
 
     return MMatrixToRtVal(mmat, rtVal)
@@ -449,7 +449,7 @@ def dfgPlugToPort_compound_convertCompound(compound, handle, rtVal=None):
 
 def dfgPlugToPort_mat44(plug, data, binding, argName):
 
-    if plug.array:
+    if plug.isArray:
         arrayHandle = data.inputArrayValue(plug)
         elementCount = len(arrayHandle)
 
@@ -461,7 +461,7 @@ def dfgPlugToPort_mat44(plug, data, binding, argName):
             arrayHandle.jumpToLogicalElement(i)
             handle = arrayHandle.inputValue()
             mayaMat = handle.asMatrix()
-            rtVal[i] = dfgPlugToPort_compound_convertMat44(mayaMat)
+            rtVal[i] = dfgPlugToPort_compound_convertMat44(mayaMat, f=False)
 
     else:
         rtVal = binding.getArgValue(argName)
@@ -470,14 +470,14 @@ def dfgPlugToPort_mat44(plug, data, binding, argName):
 
         handle = data.inputValue(plug)
         mayaMat = handle.asMatrix()
-        rtVal = dfgPlugToPort_compound_convertMat44(mayaMat, rtVal)
+        rtVal = dfgPlugToPort_compound_convertMat44(mayaMat, rtVal, f=True)
 
     binding.setArgValue(argName, rtVal, False)
 
 
 def dfgPortToPlug_mat44(binding, argName, plug, data):
 
-    if plug.array:
+    if plug.isArray:
         arrayHandle = data.outputArrayValue(plug)
         elementCount = len(arrayHandle)
         arrayBuilder = arrayHandle.builder()
