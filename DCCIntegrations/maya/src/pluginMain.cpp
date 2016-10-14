@@ -10,7 +10,7 @@
 #include "Foundation.h"
 
 #include "Test2Node.h"
-#include "test3.h"
+#include "bob2.h"
 
 #include <maya/MFnPlugin.h>
 #include <maya/MGlobal.h>
@@ -215,7 +215,7 @@ MAYA_EXPORT initializePlugin( MObject obj )
   gOnAnimCurveEditedCallbackId = MAnimMessage::addAnimCurveEditedCallback(FabricDFGBaseInterface::onAnimCurveEdited);
  
   plugin.registerNode("Test2", Test2::id, Test2::creator, Test2::initialize );
-  plugin.registerNode("test3", test3::id, test3::creator, test3::initialize );
+  plugin.registerNode("bob2", bob2::id, bob2::creator, bob2::initialize );
 
   plugin.registerCommand(
     "monolithReloadJSON",
@@ -253,7 +253,7 @@ MAYA_EXPORT uninitializePlugin( MObject obj)
   MFnPlugin plugin( obj );
 
   plugin.deregisterNode(Test2::id);
-  plugin.deregisterNode(test3::id);
+  plugin.deregisterNode(bob2::id);
   plugin.deregisterCommand( "dfgReloadJSON" );
 
   MSceneMessage::removeCallback(gOnSceneSaveCallbackId);
