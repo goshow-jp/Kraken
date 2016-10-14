@@ -49,10 +49,7 @@ public:
   static MObject drawDebug;
   static MObject rigScale;
 
-  {% for in_port in node.input_ports %}
-  static MObject m_{{ in_port.name }};
-  {% endfor %}
-  {% for out_port in node.output_ports %}
-  static MObject m_{{ out_port.name }};
-  {% endfor %}
+  {% for port in node.ports %}
+  static MObject m_{{ port.name }};
+  {%- endfor %}
 };

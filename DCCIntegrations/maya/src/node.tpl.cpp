@@ -40,12 +40,9 @@ MObject {{ node.class_name }}::rigScale;
 ////////////////////////////////////////////////////////////////////////////
 //        dynamic generation here
 ////////////////////////////////////////////////////////////////////////////
-{% for in_port in node.input_ports %}
-MObject {{ node.class_name }}::m_{{ in_port.name }};
-{% endfor %}
-{% for out_port in node.output_ports %}
-MObject {{ node.class_name }}::m_{{ out_port.name }};
-{% endfor %}
+{% for port in node.ports %}
+MObject {{ node.class_name }}::m_{{ port.name }};
+{%- endfor %}
 
 
 #define TRANSFER_INPUTPLUG_TO_DFGPORT(inputPortName, outputPortName, portDataType) \
@@ -59,16 +56,6 @@ MObject {{ node.class_name }}::m_{{ out_port.name }};
     } \
   } \
 
-/*
-  if (plugName.rfind(std::string(inputPortName), plugName.find(".") + 1) != -1) \
-  { \
-    DFGPlugToArgFunc func = getDFGPlugToArgFunc(portDataType); \
-    if(func != NULL) \
-    { \
-      (*func)(plug, data, m_binding, getLockType(), inputPortName, &timers); \
-    } \
-  } \
-*/
 
 // mayaLogErrorFunc(("input to port: " + plug.name()).asChar()); \
 
@@ -90,19 +77,6 @@ MObject {{ node.class_name }}::m_{{ out_port.name }};
       } \
     } \
   } \
-
-/*
-  if (plugName.rfind(std::string(inputPortName), plugName.find(".") + 1) != -1) \
-  { \
-    DFGArgToPlugFunc func = getDFGArgToPlugFunc(portDataType); \
-    if(func != NULL) \
-    { \
-      FabricSplice::Logging::AutoTimer timer("Maya::transferOutputValuesToMaya::conversionFunc()"); \
-      MFnDependencyNode thisNode(thisMObject()); \
-      (*func)(m_binding, getLockType(), outputPortName, thisNode.findPlug(outputPortName, false), data); \
-    } \
-  } \
-*/
 
 
 
@@ -172,33 +146,67 @@ MStatus {{ node.class_name }}::initialize() {
 
   ////////////////////////////////////////////////////////////////////////////
   //        dynamic generated attributes
-  {% for in_port in node.input_ports %}
-  m_{{ in_port.name }} = matAttr.create("{{ in_port.name }}", "{{ in_port.name }}", MFnMatrixAttribute::kDouble);
-  matAttr.setStorable(true);
-  matAttr.setKeyable(true);
-  matAttr.setHidden(false);
-  matAttr.setArray(true);
-  matAttr.setReadable(false);
-  addAttribute(m_{{ in_port.name }});
-  {% endfor %}
+  // input
+  {% for port in node.ports %}
+  {%- if port.execPortType == "In" %}
+  {%- if "Mat44" in port.typeSpec %}
+  {%- set attrName = "matAttr" -%}
+  {%- set attrType = "MFnMatrixAttribute::kDouble" -%}
+  {%- elif  "Scalar" in port.typeSpec %}
+  {%- set attrName = "nAttr" -%}
+  {%- set attrType = "MFnNumericData::kDouble" -%}
+  {%- elif  "Boolean" in port.typeSpec %}
+  {%- set attrName = "nAttr" -%}
+  {%- set attrType = "MFnNumericData::kBoolean" -%}
+  {%- endif %}
 
-  {% for out_port in node.output_ports %}
-  m_{{ out_port.name }} = matAttr.create("{{ out_port.name }}", "{{ out_port.name }}", MFnMatrixAttribute::kDouble);
-  matAttr.setStorable(true);
-  matAttr.setKeyable(false);
-  matAttr.setHidden(false);
-  matAttr.setArray(true);
-  matAttr.setUsesArrayDataBuilder(true);
-  matAttr.setWritable(false);
-  matAttr.setReadable(true);
-  addAttribute(m_{{ out_port.name }});
-  {% endfor %}
+  m_{{ port.name }} = {{ attrName }}.create("{{ port.name }}", "{{ port.name }}", {{ attrType }});
+  {{ attrName }}.setStorable(true);
+  {{ attrName }}.setKeyable(true);
+  {{ attrName }}.setHidden(false);
+  {%- if "[]" in port.typeSpec %}
+  {{ attrName }}.setArray(true);
+  {%- endif %}
+  {{ attrName }}.setReadable(false);
+  addAttribute(m_{{ port.name }});
+  {%- endif %}
+  {%- endfor %}
 
-  {% for in_port in node.input_ports %}
-    {% for affect in in_port.affects %}
-  attributeAffects(m_{{ in_port.name }}, m_{{ affect }});
-    {% endfor %}
-  {% endfor %}
+  // output
+  {% for port in node.ports %}
+  {%- if port.execPortType == "Out" %}
+  {%- if "Mat44" in port.typeSpec %}
+  {%- set attrName = "matAttr" -%}
+  {%- set attrType = "MFnMatrixAttribute::kDouble" -%}
+  {%- elif  "Scalar" in port.typeSpec %}
+  {%- set attrName = "nAttr" -%}
+  {%- set attrType = "MFnNumericData::kDouble" -%}
+  {%- elif  "Boolean" in port.typeSpec %}
+  {%- set attrName = "nAttr" -%}
+  {%- set attrType = "MFnNumericData::kBoolean" -%}
+  {%- endif %}
+
+  m_{{ port.name }} = {{ attrName }}.create("{{ port.name }}", "{{ port.name }}", {{ attrType }});
+  {{ attrName }}.setStorable(true);
+  {{ attrName }}.setKeyable(false);
+  {{ attrName }}.setHidden(false);
+  {%- if "[]" in port.typeSpec %}
+  {{ attrName }}.setArray(true);
+  {{ attrName }}.setUsesArrayDataBuilder(true);
+  {%- endif %}
+  {{ attrName }}.setWritable(false);
+  {{ attrName }}.setReadable(true);
+  addAttribute(m_{{ port.name }});
+  {%- endif %}
+  {%- endfor %}
+
+  {% for port in node.ports %}
+    {%- if port.execPortType == "In" %}
+      {%- for affect in port.affects %}
+  attributeAffects(m_{{ port.name }}, m_{{ affect }});
+      {%- endfor %}
+    {%- endif %}
+  {%- endfor %}
 
   return MS::kSuccess;
 
@@ -315,11 +323,13 @@ bool {{ node.class_name }}::transferStaticInputValuesToDFG(MPlug& plug, MDataBlo
   TRANSFER_INPUTPLUG_TO_DFGPORT("drawDebug", "drawDebug", "Boolean");
   TRANSFER_INPUTPLUG_TO_DFGPORT("rigScale", "rigScale", "Scalar");
 
-  {% for in_port in node.input_ports %}
-    {% for affect in in_port.affects %}
-  TRANSFER_INPUTPLUG_TO_DFGPORT("{{ in_port.name }}", "{{ affect }}", "{{ in_port.type }}");
-  {% endfor %}
-  {% endfor %}
+  {% for port in node.ports %}
+    {%- if port.execPortType == "In" %}
+      {%- for affect in port.affects %}
+  TRANSFER_INPUTPLUG_TO_DFGPORT("{{ port.name }}", "{{ affect }}", "{{ port.typeSpec|replace("[]", "") }}");
+      {%- endfor %}
+    {%- endif %}
+  {%- endfor %}
 
   return true;
 
@@ -341,7 +351,14 @@ void {{ node.class_name }}::transferStaticOutputValuesToMaya(MPlug& plug, MDataB
   std::string plugName(plug.name(&stat).asChar());
   FabricSplice::Logging::AutoTimer timer("Maya::transferOutputValuesToMaya()");
 
-  {% for out_port in node.output_ports %}
-  TRANSFER_DFGPORT_TO_OUTPUTPLUG("{{ out_port.name }}", "{{ out_port.name }}", "{{ out_port.type }}");
-  {% endfor %}
+  if( plug.isElement() )
+  {
+    plug = plug.array();
+  }
+
+  {% for port in node.ports %}
+    {%- if port.execPortType == "Out" %}
+  TRANSFER_DFGPORT_TO_OUTPUTPLUG("{{ port.name }}", "{{ port.name }}", "{{ port.typeSpec|replace("[]", "") }}");
+    {%- endif %}
+  {%- endfor %}
 }
