@@ -15,13 +15,13 @@
     <None Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bob2.h" />
     <ClInclude Include="MonolithDFGCommands.h" />
-    <ClInclude Include="test3.h" />
     <ClInclude Include="Test2Node.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bob2.cpp" />
     <ClCompile Include="MonolithDFGCommands.cpp" />
-    <ClCompile Include="test3.cpp" />
     <ClCompile Include="pluginMain.cpp" />
     <ClCompile Include="Test2Node.cpp" />
   </ItemGroup>
@@ -57,7 +57,7 @@
     <TargetExt>.mll</TargetExt>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
     <IntDir>$(Configuration)\</IntDir>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath););D:\fabric\release\include;D:\fabric\release\include\FTL;D:\fabric\release\include\FabricUI;D:\fabric\release\include\FabricServices;D:\fabric\release\include\SpliceMaya;D:\fabric\include;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath););D:\fabric\release\include;D:\fabric\release\include\FTL;D:\fabric\release\include\FabricUI;D:\fabric\release\include\FabricServices;D:\fabric\release\include\SpliceMaya;D:\fabric\include;D:\fabric\include\QtCore;D:\fabric\include\QtGui;D:\fabric\include\Qt;</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);D:\fabric\release\lib;</LibraryPath>
     <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
@@ -100,7 +100,7 @@
     <TargetExt>.mll</TargetExt>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
     <IntDir>$(Configuration)\</IntDir>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath););D:\fabric\release\include;D:\fabric\release\include\FTL;D:\fabric\release\include\FabricUI;D:\fabric\release\include\FabricServices;D:\fabric\release\include\SpliceMaya;D:\fabric\include;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath););D:\fabric\release\include;D:\fabric\release\include\FTL;D:\fabric\release\include\FabricUI;D:\fabric\release\include\FabricServices;D:\fabric\release\include\SpliceMaya;D:\fabric\include;D:\fabric\include\QtCore;D:\fabric\include\QtGui;D:\fabric\include\Qt;</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);D:\fabric\release\lib;</LibraryPath>
     <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
