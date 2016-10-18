@@ -1,50 +1,63 @@
-// Created by kl2dfg (processFunction)
 {
   "objectType" : "Func",
   "metadata" : {
-    "uiTooltip" : "Supported types:\n  offset: Xfo\n  constrainer: Xfo\n  constrainee: Xfo\n  result: Xfo\n"
+    "camera_mat44" : "{\n  \"row0\" : {\n    \"x\" : 0.7999999523162842,\n    \"y\" : -0.2228344082832336,\n    \"z\" : 0.5570860505104065,\n    \"t\" : 30\n    },\n  \"row1\" : {\n    \"x\" : -1.490116119384766e-08,\n    \"y\" : 0.9284766912460327,\n    \"z\" : 0.3713906705379486,\n    \"t\" : 20\n    },\n  \"row2\" : {\n    \"x\" : -0.6000000834465027,\n    \"y\" : -0.2971125543117523,\n    \"z\" : 0.7427813410758972,\n    \"t\" : 40\n    },\n  \"row3\" : {\n    \"x\" : 0,\n    \"y\" : 0,\n    \"z\" : 0,\n    \"t\" : 1\n    }\n  }",
+    "timeline_start" : "1",
+    "timeline_loopMode" : "1",
+    "timeline_simMode" : "0",
+    "camera_focalDistance" : "53.85164642333984",
+    "uiTooltip" : "Supported types:\n  offset: Xfo\n  constrainer: Xfo\n  constrainee: Xfo\n  result: Xfo\n",
+    "timeline_current" : "1",
+    "timeline_end" : "250"
     },
   "title" : "ComputeKrakenPoseConstraint",
   "ports" : [
     {
-      "objectType" : "Port",
+      "objectType" : "ExecPort",
+      "name" : "exec",
+      "nodePortType" : "IO",
+      "execPortType" : "IO",
+      "typeSpec" : "Execute"
+      },
+    {
+      "objectType" : "ExecPort",
       "metadata" : {
         "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
         },
-      "nodePortType" : "Out",
       "name" : "offset",
+      "nodePortType" : "Out",
       "execPortType" : "In",
-      "typeSpec" : "Xfo"
+      "typeSpec" : "Mat44"
       },
     {
-      "objectType" : "Port",
+      "objectType" : "ExecPort",
       "metadata" : {
         "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
         },
-      "nodePortType" : "Out",
       "name" : "constrainer",
-      "execPortType" : "In",
-      "typeSpec" : "Xfo"
-      },
-    {
-      "objectType" : "Port",
-      "metadata" : {
-        "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
-        },
       "nodePortType" : "Out",
-      "name" : "constrainee",
       "execPortType" : "In",
-      "typeSpec" : "Xfo"
+      "typeSpec" : "Mat44"
       },
     {
-      "objectType" : "Port",
+      "objectType" : "ExecPort",
       "metadata" : {
         "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
         },
-      "nodePortType" : "In",
+      "name" : "constrainee",
+      "nodePortType" : "Out",
+      "execPortType" : "In",
+      "typeSpec" : "Mat44"
+      },
+    {
+      "objectType" : "ExecPort",
+      "metadata" : {
+        "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
+        },
       "name" : "result",
+      "nodePortType" : "In",
       "execPortType" : "Out",
-      "typeSpec" : "Xfo"
+      "typeSpec" : "Mat44"
       }
     ],
   "extDeps" : {
@@ -56,5 +69,27 @@
 dfgEntry {
   result = computeKrakenPoseConstraint(offset, constrainer, constrainee);
 }
-"
+",
+  "args" : [
+    {
+      "type" : "Mat44",
+      "value" : null,
+      "ext" : "Math"
+      },
+    {
+      "type" : "Mat44",
+      "value" : null,
+      "ext" : "Math"
+      },
+    {
+      "type" : "Mat44",
+      "value" : null,
+      "ext" : "Math"
+      },
+    {
+      "type" : "Mat44",
+      "value" : null,
+      "ext" : "Math"
+      }
+    ]
   }

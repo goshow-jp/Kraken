@@ -1,0 +1,50 @@
+require Kraken;
+
+object KrakenInputCache {
+  Mat44 cache[];
+  Boolean isCached;
+};
+
+
+function KrakenInputCache() {
+  this.isCached = false;
+}
+
+
+function KrakenInputCache.update!( in Mat44[] input, out Mat44[] output, out Boolean isCached ){
+
+  if( this.cache.size() == 0 ){
+    this.isCached = false;
+    this.cache.resize(input.size());
+  }
+
+  if( input.size() == 0 ){
+    this.isCached = false;
+    return;
+  }
+
+  if( this.cache.size() != input.size() ){
+    this.cache.resize( input.size() );
+  }
+
+  for( Index i; i < input.size(); i++ ){
+
+    if ( i == (input.size() - 1) ){
+      this.isCached = true;
+    }
+
+    if( this.cache[i] != input[i] ){
+      this.isCached = false;
+      break;
+    }
+  }
+
+  if ( !this.isCached ){
+    output = input;
+    this.cache = input;
+  } else {
+    output = this.cache;
+  }
+
+  isCached = this.isCached;
+}

@@ -222,6 +222,13 @@ class KLOperator(Operator):
                 opSourceCode += "  " + argName + ".resize(" + str(arraySize) + \
                     ");\n"
 
+            # guard
+            if argDataType.endswith('[]') and argConnectionType == 'In':
+                arraySize = len(self.getInput(argName))
+                opSourceCode += "  if({}.size() != {}){{\n".format(argName, str(arraySize))
+                opSourceCode += "    return;\n"
+                opSourceCode += "  }\n"
+
         opSourceCode += "  if(solver == null)\n"
         opSourceCode += "    solver = " + self.solverTypeName + "();\n"
         opSourceCode += "  solver.solve(\n"

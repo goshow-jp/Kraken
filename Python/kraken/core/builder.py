@@ -37,12 +37,14 @@ class Builder(object):
         _buildPhase_3DObjectsAttributes (type): Description.
         _buildPhase_AttributeConnections (type): Description.
         _buildPhase_ConstraintsOperators (type): Description.
+        _buildPhase_3DObjectsSkeleton (type): Description.
 
     """
 
     _buildPhase_3DObjectsAttributes = 0
     _buildPhase_AttributeConnections = 1
     _buildPhase_ConstraintsOperators = 2
+    _buildPhase_3DObjectsSkeleton = 3
 
     def __init__(self, debugMode=False):
         super(Builder, self).__init__()
@@ -212,7 +214,6 @@ class Builder(object):
 
         """
 
-
         logger.info("buildLocator: " + kSceneItem.getPath() + " as: " +
                     buildName)
 
@@ -251,6 +252,24 @@ class Builder(object):
                     buildName)
 
         return None
+
+    def buildSkeleton(self, kSceneItem, buildName):
+        """Builds a locator / null object.
+
+        Args:
+            kSceneItem (object): kSceneItem that represents a locator / null to be built.
+            buildName (string): The name to use on the built object.
+
+        Returns:
+            object: DCC Scene Item that is created.
+
+        """
+
+        logger.info("buildSkeleton: " + kSceneItem.getPath() + " as: " +
+                    buildName)
+        dccSceneItem = self.buildLocator(kSceneItem, buildName)
+
+        return dccSceneItem
 
     # ========================
     # Attribute Build Methods
@@ -594,6 +613,9 @@ class Builder(object):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildPoseConstraint(kObject, buildName)
 
+            # if phase == self._buildPhase_3DObjectsSkeleton:
+            #     dccSceneItem = self.buildPoseConstraint(kObject, buildName)
+
         elif kObject.isTypeOf("PositionConstraint"):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildPositionConstraint(kObject, buildName)
@@ -609,6 +631,14 @@ class Builder(object):
         elif kObject.isTypeOf("CanvasOperator"):
             if phase == self._buildPhase_ConstraintsOperators:
                 dccSceneItem = self.buildCanvasOperator(kObject, buildName)
+
+        elif kObject.isTypeOf("ComponentInput"):
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                dccSceneItem = self.buildSkeleton(kObject, buildName)
+
+        elif kObject.isTypeOf("ComponentOutput"):
+            if phase == self._buildPhase_3DObjectsSkeleton:
+                dccSceneItem = self.buildSkeleton(kObject, buildName)
 
         # Important Note: The order of these tests is important.
         # New classes should be added above the classes they are derrived from.
@@ -697,6 +727,14 @@ class Builder(object):
 
             self.__buildSceneItemList(attributes,
                                       self._buildPhase_3DObjectsAttributes)
+
+            # build abstract skeleton
+            self.__buildSceneItemList(objects3d,
+                                      self._buildPhase_3DObjectsSkeleton)
+
+            constraints = traverser.getItemsOfType('Constraint')
+            self.__buildSceneItemList(constraints,
+                                      self._buildPhase_3DObjectsSkeleton)
 
             # connect all attributes
             self.__buildSceneItemList(attributes,

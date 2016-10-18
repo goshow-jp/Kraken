@@ -1,0 +1,423 @@
+{
+  "objectType" : "Graph",
+  "metadata" : {
+    "uiGraphZoom" : "{\n  \"value\" : 0.9963999390602112\n  }",
+    "uiGraphPan" : "{\n  \"x\" : 25.20323181152344,\n  \"y\" : 11.14482116699219\n  }"
+    },
+  "title" : "KrakenInputCache",
+  "ports" : [
+    {
+      "objectType" : "ExecPort",
+      "name" : "exec",
+      "nodePortType" : "IO",
+      "defaultValues" : {
+        "Execute" : {}
+        },
+      "execPortType" : "IO",
+      "typeSpec" : "Execute"
+      },
+    {
+      "objectType" : "ExecPort",
+      "name" : "input",
+      "nodePortType" : "Out",
+      "defaultValues" : {
+        "Mat44[]" : []
+        },
+      "execPortType" : "In",
+      "typeSpec" : "$TYPE$"
+      },
+    {
+      "objectType" : "ExecPort",
+      "name" : "isCached",
+      "nodePortType" : "In",
+      "defaultValues" : {
+        "Boolean" : false
+        },
+      "execPortType" : "Out"
+      },
+    {
+      "objectType" : "ExecPort",
+      "metadata" : {},
+      "name" : "result",
+      "nodePortType" : "In",
+      "defaultValues" : {
+        "Mat44[]" : []
+        },
+      "execPortType" : "Out",
+      "typeSpec" : "$TYPE$"
+      }
+    ],
+  "extDeps" : {},
+  "presetGUID" : "C8847DAB13EAC19E0F6A486B7C84F793",
+  "nodes" : [
+    {
+      "objectType" : "Inst",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":187.0,\"y\":-2.0}"
+        },
+      "name" : "KrakenInputCache_1",
+      "ports" : [
+        {
+          "objectType" : "InstPort",
+          "name" : "exec",
+          "nodePortType" : "IO"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "result",
+          "nodePortType" : "Out"
+          }
+        ],
+      "executable" : "KrakenInputCache",
+      "presetGUID" : "D7A10E81C57E942AD1F752EE24D41FE7"
+      },
+    {
+      "objectType" : "Inst",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":560.0,\"y\":86.0}"
+        },
+      "name" : "Update_1",
+      "ports" : [
+        {
+          "objectType" : "InstPort",
+          "name" : "exec",
+          "nodePortType" : "IO"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "this",
+          "nodePortType" : "IO"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "input",
+          "nodePortType" : "In"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "output",
+          "nodePortType" : "Out"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "isCached",
+          "nodePortType" : "Out"
+          }
+        ],
+      "executable" : "Update",
+      "presetGUID" : "859DE66D16140EC242C967CDFF8486F6"
+      },
+    {
+      "objectType" : "Var",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":381.0,\"y\":-2.0}"
+        },
+      "name" : "InputCache",
+      "ports" : [
+        {
+          "objectType" : "VarPort",
+          "name" : "value",
+          "nodePortType" : "IO"
+          }
+        ],
+      "dataType" : "KrakenInputCache"
+      },
+    {
+      "objectType" : "Set",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":707.0,\"y\":-1.0}"
+        },
+      "name" : "set",
+      "ports" : [
+        {
+          "objectType" : "SetPort",
+          "name" : "value",
+          "nodePortType" : "IO"
+          }
+        ],
+      "varPath" : "InputCache"
+      }
+    ],
+  "connections" : {
+    "input" : [
+      "Update_1.input"
+      ],
+    "KrakenInputCache_1.result" : [
+      "InputCache.value"
+      ],
+    "Update_1.this" : [
+      "set.value"
+      ],
+    "Update_1.output" : [
+      "result"
+      ],
+    "Update_1.isCached" : [
+      "isCached"
+      ],
+    "InputCache.value" : [
+      "Update_1.this"
+      ],
+    "set.value" : [
+      "exec"
+      ]
+    },
+  "requiredPresets" : {
+    "Kraken.KrakenForCanvas.KrakenInputCache" : {
+      "objectType" : "Graph",
+      "metadata" : {
+        "uiGraphZoom" : "{\n  \"value\" : 0.9963999390602112\n  }",
+        "uiGraphPan" : "{\n  \"x\" : 25.20323181152344,\n  \"y\" : 11.14482116699219\n  }"
+        },
+      "title" : "KrakenInputCache",
+      "ports" : [
+        {
+          "objectType" : "ExecPort",
+          "name" : "exec",
+          "nodePortType" : "IO",
+          "defaultValues" : {
+            "Execute" : {}
+            },
+          "execPortType" : "IO",
+          "typeSpec" : "Execute"
+          },
+        {
+          "objectType" : "ExecPort",
+          "name" : "input",
+          "nodePortType" : "Out",
+          "defaultValues" : {
+            "Mat44[]" : []
+            },
+          "execPortType" : "In",
+          "typeSpec" : "$TYPE$"
+          },
+        {
+          "objectType" : "ExecPort",
+          "name" : "isCached",
+          "nodePortType" : "In",
+          "defaultValues" : {
+            "Boolean" : false
+            },
+          "execPortType" : "Out"
+          },
+        {
+          "objectType" : "ExecPort",
+          "metadata" : {},
+          "name" : "result",
+          "nodePortType" : "In",
+          "defaultValues" : {
+            "Mat44[]" : []
+            },
+          "execPortType" : "Out",
+          "typeSpec" : "$TYPE$"
+          }
+        ],
+      "extDeps" : {},
+      "presetGUID" : "C8847DAB13EAC19E0F6A486B7C84F793",
+      "nodes" : [
+        {
+          "objectType" : "Inst",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":187.0,\"y\":-2.0}"
+            },
+          "name" : "KrakenInputCache_1",
+          "ports" : [
+            {
+              "objectType" : "InstPort",
+              "name" : "exec",
+              "nodePortType" : "IO"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "result",
+              "nodePortType" : "Out"
+              }
+            ],
+          "executable" : "KrakenInputCache",
+          "presetGUID" : "D7A10E81C57E942AD1F752EE24D41FE7"
+          },
+        {
+          "objectType" : "Inst",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":560.0,\"y\":86.0}"
+            },
+          "name" : "Update_1",
+          "ports" : [
+            {
+              "objectType" : "InstPort",
+              "name" : "exec",
+              "nodePortType" : "IO"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "this",
+              "nodePortType" : "IO"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "input",
+              "nodePortType" : "In"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "output",
+              "nodePortType" : "Out"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "isCached",
+              "nodePortType" : "Out"
+              }
+            ],
+          "executable" : "Update",
+          "presetGUID" : "859DE66D16140EC242C967CDFF8486F6"
+          },
+        {
+          "objectType" : "Var",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":381.0,\"y\":-2.0}"
+            },
+          "name" : "InputCache",
+          "ports" : [
+            {
+              "objectType" : "VarPort",
+              "name" : "value",
+              "nodePortType" : "IO"
+              }
+            ],
+          "dataType" : "KrakenInputCache"
+          },
+        {
+          "objectType" : "Set",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":707.0,\"y\":-1.0}"
+            },
+          "name" : "set",
+          "ports" : [
+            {
+              "objectType" : "SetPort",
+              "name" : "value",
+              "nodePortType" : "IO"
+              }
+            ],
+          "varPath" : "InputCache"
+          }
+        ],
+      "connections" : {
+        "input" : [
+          "Update_1.input"
+          ],
+        "KrakenInputCache_1.result" : [
+          "InputCache.value"
+          ],
+        "Update_1.this" : [
+          "set.value"
+          ],
+        "Update_1.output" : [
+          "result"
+          ],
+        "Update_1.isCached" : [
+          "isCached"
+          ],
+        "InputCache.value" : [
+          "Update_1.this"
+          ],
+        "set.value" : [
+          "exec"
+          ]
+        }
+      },
+    "KrakenInputCache" : {
+      "objectType" : "Func",
+      "metadata" : {
+        "uiTooltip" : "Supported types:\n  result: KrakenInputCache\n"
+        },
+      "title" : "KrakenInputCache",
+      "ports" : [
+        {
+          "objectType" : "ExecPort",
+          "name" : "exec",
+          "nodePortType" : "IO",
+          "execPortType" : "IO",
+          "typeSpec" : "Execute"
+          },
+        {
+          "objectType" : "ExecPort",
+          "name" : "result",
+          "nodePortType" : "In",
+          "execPortType" : "Out",
+          "typeSpec" : "KrakenInputCache"
+          }
+        ],
+      "extDeps" : {
+        "KrakenForCanvas" : "*"
+        },
+      "presetGUID" : "D7A10E81C57E942AD1F752EE24D41FE7",
+      "code" : "require KrakenForCanvas;
+
+dfgEntry {
+  result = KrakenInputCache();
+}
+"
+      },
+    "Update" : {
+      "objectType" : "Func",
+      "metadata" : {
+        "uiTooltip" : "Supported types:\n  this: KrakenInputCache\n  input: Mat44[]\n  output: Mat44[]\n  isCached: Boolean\n"
+        },
+      "title" : "Update",
+      "ports" : [
+        {
+          "objectType" : "ExecPort",
+          "name" : "exec",
+          "nodePortType" : "IO",
+          "execPortType" : "IO",
+          "typeSpec" : "Execute"
+          },
+        {
+          "objectType" : "ExecPort",
+          "name" : "this",
+          "nodePortType" : "IO",
+          "execPortType" : "IO",
+          "typeSpec" : "KrakenInputCache"
+          },
+        {
+          "objectType" : "ExecPort",
+          "metadata" : {
+            "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
+            },
+          "name" : "input",
+          "nodePortType" : "Out",
+          "execPortType" : "In",
+          "typeSpec" : "Mat44[]"
+          },
+        {
+          "objectType" : "ExecPort",
+          "metadata" : {
+            "uiColor" : "{\n  \"r\" : 249,\n  \"g\" : 157,\n  \"b\" : 28\n  }"
+            },
+          "name" : "output",
+          "nodePortType" : "In",
+          "execPortType" : "Out",
+          "typeSpec" : "Mat44[]"
+          },
+        {
+          "objectType" : "ExecPort",
+          "name" : "isCached",
+          "nodePortType" : "In",
+          "execPortType" : "Out",
+          "typeSpec" : "Boolean"
+          }
+        ],
+      "extDeps" : {
+        "KrakenForCanvas" : "*"
+        },
+      "presetGUID" : "859DE66D16140EC242C967CDFF8486F6",
+      "code" : "require KrakenForCanvas;
+
+dfgEntry {
+  this.update(input, output, isCached);
+}
+"
+      }
+    }
+  }
