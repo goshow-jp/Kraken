@@ -1,8 +1,8 @@
 {
   "objectType" : "Graph",
   "metadata" : {
-    "uiGraphZoom" : "{\n  \"value\" : 0.9968924522399902\n  }",
-    "uiGraphPan" : "{\n  \"x\" : -265.197509765625,\n  \"y\" : -863.0855102539063\n  }"
+    "uiGraphZoom" : "{\n  \"value\" : 0.6701533794403076\n  }",
+    "uiGraphPan" : "{\n  \"x\" : 137.3674362838254,\n  \"y\" : -359.2030201237955\n  }"
     },
   "title" : "KrakenOutputCache",
   "ports" : [
@@ -46,7 +46,6 @@
       },
     {
       "objectType" : "ExecPort",
-      "metadata" : {},
       "name" : "if_true",
       "nodePortType" : "Out",
       "defaultValues" : {
@@ -57,7 +56,6 @@
       },
     {
       "objectType" : "ExecPort",
-      "metadata" : {},
       "name" : "if_false",
       "nodePortType" : "Out",
       "defaultValues" : {
@@ -68,27 +66,12 @@
       }
     ],
   "extDeps" : {},
-  "presetGUID" : "9548B7C92917AD41EBD6B9F407A239CA",
+  "presetGUID" : "4CA1867A4430F2CE168DE852EC69A2F6",
   "nodes" : [
-    {
-      "objectType" : "Var",
-      "metadata" : {
-        "uiGraphPos" : "{\"x\":486.292,\"y\":1256.14}"
-        },
-      "name" : "test_2",
-      "ports" : [
-        {
-          "objectType" : "VarPort",
-          "name" : "value",
-          "nodePortType" : "IO"
-          }
-        ],
-      "dataType" : "Mat44[]"
-      },
     {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":816.467,\"y\":1046.8}"
+        "uiGraphPos" : "{\"x\":636.543,\"y\":982.02}"
         },
       "name" : "If_4",
       "ports" : [
@@ -122,24 +105,9 @@
       "presetGUID" : "3182A478A21643455D549E483D35F831"
       },
     {
-      "objectType" : "Set",
-      "metadata" : {
-        "uiGraphPos" : "{\"x\":1170.88,\"y\":1057.19}"
-        },
-      "name" : "set_2",
-      "ports" : [
-        {
-          "objectType" : "SetPort",
-          "name" : "value",
-          "nodePortType" : "IO"
-          }
-        ],
-      "varPath" : "test_2"
-      },
-    {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":363.408,\"y\":905.331}"
+        "uiGraphPos" : "{\"x\":189.784,\"y\":843.071}"
         },
       "name" : "Size_1",
       "ports" : [
@@ -165,7 +133,7 @@
     {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":488.279,\"y\":880.225}"
+        "uiGraphPos" : "{\"x\":314.655,\"y\":817.965}"
         },
       "name" : "Gt_1",
       "ports" : [
@@ -196,7 +164,7 @@
     {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":631.01,\"y\":990.015}"
+        "uiGraphPos" : "{\"x\":457.386,\"y\":927.755}"
         },
       "name" : "And_1",
       "ports" : [
@@ -227,7 +195,7 @@
     {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":474.107,\"y\":1016.95}"
+        "uiGraphPos" : "{\"x\":300.483,\"y\":954.6900000000001}"
         },
       "name" : "Not_1",
       "ports" : [
@@ -253,7 +221,7 @@
     {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":979.107,\"y\":1174.59}"
+        "uiGraphPos" : "{\"x\":922.303,\"y\":1078.14}"
         },
       "name" : "If_1",
       "ports" : [
@@ -285,6 +253,51 @@
         ],
       "executable" : "Fabric.Core.Control.If",
       "presetGUID" : "3182A478A21643455D549E483D35F831"
+      },
+    {
+      "objectType" : "Var",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":327.189,\"y\":674.292}"
+        },
+      "name" : "cache",
+      "ports" : [
+        {
+          "objectType" : "VarPort",
+          "name" : "value",
+          "nodePortType" : "IO"
+          }
+        ],
+      "dataType" : "Mat44[]"
+      },
+    {
+      "objectType" : "Set",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":898.109,\"y\":981.206}"
+        },
+      "name" : "set",
+      "ports" : [
+        {
+          "objectType" : "SetPort",
+          "name" : "value",
+          "nodePortType" : "IO"
+          }
+        ],
+      "varPath" : "cache"
+      },
+    {
+      "objectType" : "Get",
+      "metadata" : {
+        "uiGraphPos" : "{\"x\":338.854,\"y\":1181.51}"
+        },
+      "name" : "get",
+      "ports" : [
+        {
+          "objectType" : "GetPort",
+          "name" : "value",
+          "nodePortType" : "Out"
+          }
+        ],
+      "varPath" : "cache"
       }
     ],
   "connections" : {
@@ -293,26 +306,19 @@
       ],
     "output" : [
       "Size_1.this",
-      "If_4.if_true",
-      "test_2.value"
+      "If_4.if_true"
       ],
     "if_true" : [
-      "If_1.if_true"
-      ],
-    "if_false" : [
       "If_1.if_false"
       ],
-    "test_2.value" : [
-      "If_4.if_false"
+    "if_false" : [
+      "If_1.if_true"
       ],
     "If_4.cond" : [
       "If_1.cond"
       ],
     "If_4.result" : [
-      "set_2.value"
-      ],
-    "set_2.value" : [
-      "result"
+      "set.value"
       ],
     "Size_1.result" : [
       "Gt_1.lhs"
@@ -328,14 +334,23 @@
       ],
     "If_1.result" : [
       "exec"
+      ],
+    "cache.value" : [
+      "exec"
+      ],
+    "set.value" : [
+      "result"
+      ],
+    "get.value" : [
+      "If_4.if_false"
       ]
     },
   "requiredPresets" : {
     "Kraken.KrakenForCanvas.KrakenOutputCache" : {
       "objectType" : "Graph",
       "metadata" : {
-        "uiGraphZoom" : "{\n  \"value\" : 0.9968924522399902\n  }",
-        "uiGraphPan" : "{\n  \"x\" : -265.197509765625,\n  \"y\" : -863.0855102539063\n  }"
+        "uiGraphZoom" : "{\n  \"value\" : 0.6701533794403076\n  }",
+        "uiGraphPan" : "{\n  \"x\" : 137.3674362838254,\n  \"y\" : -359.2030201237955\n  }"
         },
       "title" : "KrakenOutputCache",
       "ports" : [
@@ -379,7 +394,6 @@
           },
         {
           "objectType" : "ExecPort",
-          "metadata" : {},
           "name" : "if_true",
           "nodePortType" : "Out",
           "defaultValues" : {
@@ -390,7 +404,6 @@
           },
         {
           "objectType" : "ExecPort",
-          "metadata" : {},
           "name" : "if_false",
           "nodePortType" : "Out",
           "defaultValues" : {
@@ -401,27 +414,12 @@
           }
         ],
       "extDeps" : {},
-      "presetGUID" : "9548B7C92917AD41EBD6B9F407A239CA",
+      "presetGUID" : "4CA1867A4430F2CE168DE852EC69A2F6",
       "nodes" : [
-        {
-          "objectType" : "Var",
-          "metadata" : {
-            "uiGraphPos" : "{\"x\":486.292,\"y\":1256.14}"
-            },
-          "name" : "test_2",
-          "ports" : [
-            {
-              "objectType" : "VarPort",
-              "name" : "value",
-              "nodePortType" : "IO"
-              }
-            ],
-          "dataType" : "Mat44[]"
-          },
         {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":816.467,\"y\":1046.8}"
+            "uiGraphPos" : "{\"x\":636.543,\"y\":982.02}"
             },
           "name" : "If_4",
           "ports" : [
@@ -455,24 +453,9 @@
           "presetGUID" : "3182A478A21643455D549E483D35F831"
           },
         {
-          "objectType" : "Set",
-          "metadata" : {
-            "uiGraphPos" : "{\"x\":1170.88,\"y\":1057.19}"
-            },
-          "name" : "set_2",
-          "ports" : [
-            {
-              "objectType" : "SetPort",
-              "name" : "value",
-              "nodePortType" : "IO"
-              }
-            ],
-          "varPath" : "test_2"
-          },
-        {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":363.408,\"y\":905.331}"
+            "uiGraphPos" : "{\"x\":189.784,\"y\":843.071}"
             },
           "name" : "Size_1",
           "ports" : [
@@ -498,7 +481,7 @@
         {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":488.279,\"y\":880.225}"
+            "uiGraphPos" : "{\"x\":314.655,\"y\":817.965}"
             },
           "name" : "Gt_1",
           "ports" : [
@@ -529,7 +512,7 @@
         {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":631.01,\"y\":990.015}"
+            "uiGraphPos" : "{\"x\":457.386,\"y\":927.755}"
             },
           "name" : "And_1",
           "ports" : [
@@ -560,7 +543,7 @@
         {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":474.107,\"y\":1016.95}"
+            "uiGraphPos" : "{\"x\":300.483,\"y\":954.6900000000001}"
             },
           "name" : "Not_1",
           "ports" : [
@@ -586,7 +569,7 @@
         {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":979.107,\"y\":1174.59}"
+            "uiGraphPos" : "{\"x\":922.303,\"y\":1078.14}"
             },
           "name" : "If_1",
           "ports" : [
@@ -618,6 +601,51 @@
             ],
           "executable" : "Fabric.Core.Control.If",
           "presetGUID" : "3182A478A21643455D549E483D35F831"
+          },
+        {
+          "objectType" : "Var",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":327.189,\"y\":674.292}"
+            },
+          "name" : "cache",
+          "ports" : [
+            {
+              "objectType" : "VarPort",
+              "name" : "value",
+              "nodePortType" : "IO"
+              }
+            ],
+          "dataType" : "Mat44[]"
+          },
+        {
+          "objectType" : "Set",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":898.109,\"y\":981.206}"
+            },
+          "name" : "set",
+          "ports" : [
+            {
+              "objectType" : "SetPort",
+              "name" : "value",
+              "nodePortType" : "IO"
+              }
+            ],
+          "varPath" : "cache"
+          },
+        {
+          "objectType" : "Get",
+          "metadata" : {
+            "uiGraphPos" : "{\"x\":338.854,\"y\":1181.51}"
+            },
+          "name" : "get",
+          "ports" : [
+            {
+              "objectType" : "GetPort",
+              "name" : "value",
+              "nodePortType" : "Out"
+              }
+            ],
+          "varPath" : "cache"
           }
         ],
       "connections" : {
@@ -626,26 +654,19 @@
           ],
         "output" : [
           "Size_1.this",
-          "If_4.if_true",
-          "test_2.value"
+          "If_4.if_true"
           ],
         "if_true" : [
-          "If_1.if_true"
-          ],
-        "if_false" : [
           "If_1.if_false"
           ],
-        "test_2.value" : [
-          "If_4.if_false"
+        "if_false" : [
+          "If_1.if_true"
           ],
         "If_4.cond" : [
           "If_1.cond"
           ],
         "If_4.result" : [
-          "set_2.value"
-          ],
-        "set_2.value" : [
-          "result"
+          "set.value"
           ],
         "Size_1.result" : [
           "Gt_1.lhs"
@@ -661,6 +682,15 @@
           ],
         "If_1.result" : [
           "exec"
+          ],
+        "cache.value" : [
+          "exec"
+          ],
+        "set.value" : [
+          "result"
+          ],
+        "get.value" : [
+          "If_4.if_false"
           ]
         }
       },

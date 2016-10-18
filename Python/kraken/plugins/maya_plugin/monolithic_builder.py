@@ -1239,7 +1239,7 @@ class Builder(Builder):
         """
 
         super(Builder, self)._postBuild(kSceneItem)
-        # self.rigGraph.implodeNodesByGroup()
-        # self.rigGraph.removeUnpluggedPort()
+        self.rigGraph.implodeNodesByGroup()
+        self.rigGraph.removeUnpluggedPort()
 
         return True

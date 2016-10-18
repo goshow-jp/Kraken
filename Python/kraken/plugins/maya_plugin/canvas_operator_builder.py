@@ -115,7 +115,6 @@ class CanvasOperator(object):
         solverSolveExec.addExecPort("solver", self.client.DFG.PortTypes.IO, solverTypeName)
 
         self.conn(solverVarName, "value", self.solverSolveNodeName, "solver")
-        self.conn(self.solverSolveNodeName, "solver", "", "exec")
 
     def buildPresetBasedBase(self, kOperator, buildName):
 
