@@ -17,7 +17,7 @@ def getBuilder():
     """
 
     dccBuilder = None
-    builderName = "monolithic_builder"
+    builderName = "static_solvers_builder"
 
     for eachPlugin in __all__:
         mod = __import__("kraken.plugins." + eachPlugin, fromlist=['dccTest'])

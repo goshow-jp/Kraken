@@ -45,6 +45,11 @@ class CanvasOperator(object):
         self.client = ks.getCoreClient()
         self.config = Config.getInstance()
 
+        self.abstractOnly = False
+        self.src = []
+        self.dst = []
+        self.kOpe = kOperator
+
         self.initialize(kOperator)
         self.build(kOperator, buildName)
         self.finalize()
@@ -115,7 +120,7 @@ class CanvasOperator(object):
         solverSolveExec.addExecPort("solver", self.client.DFG.PortTypes.IO, solverTypeName)
 
         self.conn(solverVarName, "value", self.solverSolveNodeName, "solver")
-        self.conn(self.solverSolveNodeName, "solver", "", "exec")
+        # self.conn(self.solverSolveNodeName, "solver", "", "exec")
 
     def buildPresetBasedBase(self, kOperator, buildName):
 
@@ -242,7 +247,7 @@ class CanvasOperator(object):
                 self.conn(inputArrayNodeNameOut, input[0], self.solverSolveNodeName, input[0])
 
                 # select in array of KrakenTransform
-                if type(input[1]['dccSceneItem']) == AbstractBone:
+                if type(input[1]['dccSceneItem']) == AbstractBone and self.abstractOnly:
                     tmpPath = "{}|{}".format(self.containerNodeName, inputArrayNodeNameIn)
                     sel = self.rigGraph.createNodeFromPreset(
                         tmpPath, "Fabric.Core.Array.Get", "selectKrakenTransform{}".format(str(i)), dfgExec=self.containerExec)
@@ -323,7 +328,7 @@ class CanvasOperator(object):
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(self.outputCacheNodeName), ".exec")
 
-        if self.hasAbstractOnlyInput():
+        if self.hasAbstractOnlyInput() and self.abstractOnly:
             self.conn(self.selectKrakenTransformNodeName, "result", self.inputCacheNodeName, "input")
 
         try:
@@ -616,8 +621,14 @@ class CanvasOperator(object):
         tgt = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, tgt.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
-            self.selectKrakenTransformSkeleton(index, portName, dccSceneItem)
-            return
+            if self.abstractOnly:
+                self.selectKrakenTransformSkeleton(index, portName, dccSceneItem)
+                return
+            else:
+                # connects with other operator node later, post build process
+                self.src.append([portName, dccSceneItem, tgt])
+                self.selectKrakenTransformNodeName = ""
+                return
 
         if isinstance(opObject, Attribute):
             pm.connectAttr(dccSceneItem, tgt)
@@ -640,7 +651,7 @@ class CanvasOperator(object):
 
         if portDataType.endswith('[]'):
             for index in xrange(len(connectionTargets)):
-                self._connectOutput(
+                resultPortName = self._connectOutput(
                     buildName,
                     portName,
                     portConnectionType,
@@ -651,7 +662,7 @@ class CanvasOperator(object):
                     index)
         else:
             if connectionTargets['opObject'] is not None:
-                self._connectOutput(
+                resultPortName = self._connectOutput(
                     buildName,
                     portName,
                     portConnectionType,
@@ -663,6 +674,8 @@ class CanvasOperator(object):
 
         if "Mat44" in portDataType:
             self.outputControls.append([portName, connectionTargets])
+
+        return resultPortName
 
     def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem, index=-1):
 
@@ -689,9 +702,16 @@ class CanvasOperator(object):
 
         src = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, src.split(".")[-1]))
 
+        # if type(dccSceneItem) == AbstractBone and not self.abstractOnly:
         if type(dccSceneItem) == AbstractBone:
-            self.updateKrakenTransformSkeleton(index, portName, dccSceneItem)
-            return
+            if self.abstractOnly:
+                self.updateKrakenTransformSkeleton(index, portName, dccSceneItem)
+                return realPortName
+            else:
+                # connects with other operator node later, post build process
+                # self.dst.append([dccSceneItem.getName(), dccSceneItem, src])
+                self.dst.append([portName, dccSceneItem, src])
+                return realPortName
 
         if isinstance(opObject, Attribute):
             pm.connectAttr(src, dccSceneItem)
@@ -713,6 +733,8 @@ class CanvasOperator(object):
         else:
             raise NotImplementedError("Kraken Canvas Operator cannot set object [%s] outputs with Python built-in types [%s] directly!" % (src, opObject.__class__.__name__))
 
+        return realPortName
+
     def selectKrakenTransformSkeleton(self, index, inputPort, bone):
         select_preset_path = "Kraken.KrakenAnimation.SelectKrakenTransform"
         tmpPath = "{}|{}".format(self.containerNodeName, "SelectKrakenTransform")
@@ -727,6 +749,8 @@ class CanvasOperator(object):
         except AttributeError:
             self.selectKrakenTransformNodeName = self.rigGraph.createNodeFromPreset(
                 tmpPath, select_preset_path, self.solverNodeName, dfgExec=self.containerExec)
+            self.containerExec.setPortDefaultValue("{}.name".format(self.selectKrakenTransformNodeName), "RigSkeleton", False)
+
             rtVal = self.client.RT.types.UInt32.createArray([bone.id])
             self.containerExec.setPortDefaultValue("{}.indice".format(self.selectKrakenTransformNodeName), rtVal, False)
 
@@ -764,15 +788,19 @@ class CanvasOperator(object):
             self.conn(get, "element", update, "element")
 
         else:
-            self.conn(self.solverSolveNodeName, inputPort, update, "element")
+            try:
+                self.conn(self.solverSolveNodeName, inputPort, update, "element")
+            except:
+                self.conn(self.solverSolveNodeName, "result", update, "element")
 
         rtVal = ks.rtVal("UInt32", bone.id)
         self.containerExec.setPortDefaultValue("{}.index".format(update), rtVal, False)
+        self.containerExec.setPortDefaultValue("{}.name".format(update), "RigSkeleton", False)
 
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(update), "{}.this".format(self.mergeUpdateExec))
 
-    def countInputType(self):
+    def _countInputType(self):
         abstract = 0
         normal = 0
 
@@ -794,15 +822,15 @@ class CanvasOperator(object):
         return [abstract, normal]
 
     def hasMixedInput(self):
-        abstract, normal = self.countInputType()
+        abstract, normal = self._countInputType()
         return (0 < abstract) and (0 < normal)
 
     def hasAbstractOnlyInput(self):
-        abstract, normal = self.countInputType()
+        abstract, normal = self._countInputType()
         return (0 < abstract) and (0 == normal)
 
     def hasNormalInput(self):
-        abstract, normal = self.countInputType()
+        abstract, normal = self._countInputType()
         return 0 < normal
 
     def getOutputLayers(self):

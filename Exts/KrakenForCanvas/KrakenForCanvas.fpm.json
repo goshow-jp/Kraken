@@ -28,6 +28,8 @@
 
     "Shapes/KrakenCurveDict.kl",
 
-    "TaskManager/CacheManager.kl"
+    "TaskManager/CacheManager.kl",
+    "TaskManager/SkeletonSingleton.kl"
+
   ]
 }

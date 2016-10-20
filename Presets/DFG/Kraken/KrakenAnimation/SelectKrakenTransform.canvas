@@ -1,7 +1,8 @@
 {
   "objectType" : "Graph",
   "metadata" : {
-    "uiGraphPan" : "{\n  \"x\" : -440.0,\n  \"y\" : 10.0\n  }"
+    "uiGraphZoom" : "{\n  \"value\" : 1.245393514633179\n  }",
+    "uiGraphPan" : "{\n  \"x\" : -462.2217484219818,\n  \"y\" : -86.42333448949103\n  }"
     },
   "title" : "SelectKrakenTransform",
   "ports" : [
@@ -17,17 +18,6 @@
       },
     {
       "objectType" : "ExecPort",
-      "name" : "indice",
-      "nodePortType" : "Out",
-      "defaultValues" : {
-        "UInt32" : 0,
-        "UInt32[]" : []
-        },
-      "execPortType" : "In",
-      "typeSpec" : "UInt32[]"
-      },
-    {
-      "objectType" : "ExecPort",
       "name" : "result",
       "nodePortType" : "In",
       "defaultValues" : {
@@ -35,15 +25,44 @@
         },
       "execPortType" : "Out",
       "typeSpec" : "Mat44[]"
+      },
+    {
+      "objectType" : "ExecPort",
+      "metadata" : {},
+      "name" : "name",
+      "nodePortType" : "Out",
+      "defaultValues" : {
+        "String" : "RigSkeleton"
+        },
+      "execPortType" : "In",
+      "typeSpec" : "String"
+      },
+    {
+      "objectType" : "ExecPort",
+      "name" : "indice",
+      "nodePortType" : "Out",
+      "defaultValues" : {
+        "UInt32" : 0,
+        "UInt32[]" : [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+          ]
+        },
+      "execPortType" : "In",
+      "typeSpec" : "UInt32[]"
       }
     ],
   "extDeps" : {},
-  "presetGUID" : "840A9FC01FDEA59E405DEFBEC165C802",
+  "presetGUID" : "5D6C14F8FCC8570AB4D295D123B30292",
   "nodes" : [
     {
       "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":777.8490000000001,\"y\":261.444}"
+        "uiGraphPos" : "{\"x\":730.8490000000001,\"y\":338.281}"
         },
       "name" : "UpdateKrakenTransformInArray",
       "ports" : [
@@ -117,29 +136,89 @@
         }
       },
     {
-      "objectType" : "Get",
+      "objectType" : "Inst",
       "metadata" : {
-        "uiGraphPos" : "{\"x\":454.0,\"y\":222.0}"
+        "uiGraphPos" : "{\"x\":465.168,\"y\":315.075}"
         },
-      "name" : "get",
+      "name" : "func",
       "ports" : [
         {
-          "objectType" : "GetPort",
-          "name" : "value",
+          "objectType" : "InstPort",
+          "name" : "exec",
+          "nodePortType" : "IO"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "name",
+          "nodePortType" : "In"
+          },
+        {
+          "objectType" : "InstPort",
+          "name" : "transforms",
           "nodePortType" : "Out"
           }
         ],
-      "varPath" : "initializeSkeleton.transforms"
+      "definition" : {
+        "objectType" : "Func",
+        "title" : "SelectKrakenTransform",
+        "ports" : [
+          {
+            "objectType" : "ExecPort",
+            "name" : "exec",
+            "nodePortType" : "IO",
+            "defaultValues" : {
+              "Execute" : {}
+              },
+            "execPortType" : "IO",
+            "typeSpec" : "Execute"
+            },
+          {
+            "objectType" : "ExecPort",
+            "name" : "name",
+            "nodePortType" : "Out",
+            "defaultValues" : {
+              "String" : ""
+              },
+            "execPortType" : "In",
+            "typeSpec" : "String"
+            },
+          {
+            "objectType" : "ExecPort",
+            "name" : "transforms",
+            "nodePortType" : "In",
+            "defaultValues" : {
+              "KrakenTransform[]" : []
+              },
+            "execPortType" : "Out",
+            "typeSpec" : "KrakenTransform[]"
+            }
+          ],
+        "extDeps" : {
+          "KrakenForCanvas" : "*",
+          "Singletons" : "*"
+          },
+        "origPresetGUID" : "9A0C3806672B9D13C20FD33EE390F724",
+        "code" : "dfgEntry {
+  SkeletonSingleton ss = Singleton_get(name);
+  if( ss != null ){
+    transforms = ss.transforms;
+  }
+}
+"
+        }
       }
     ],
   "connections" : {
+    "name" : [
+      "func.name"
+      ],
     "indice" : [
       "UpdateKrakenTransformInArray.indice"
       ],
     "UpdateKrakenTransformInArray.result" : [
       "result"
       ],
-    "get.value" : [
+    "func.transforms" : [
       "UpdateKrakenTransformInArray.transforms"
       ]
     },
@@ -147,7 +226,8 @@
     "Kraken.KrakenAnimation.SelectKrakenTransform" : {
       "objectType" : "Graph",
       "metadata" : {
-        "uiGraphPan" : "{\n  \"x\" : -440.0,\n  \"y\" : 10.0\n  }"
+        "uiGraphZoom" : "{\n  \"value\" : 1.245393514633179\n  }",
+        "uiGraphPan" : "{\n  \"x\" : -462.2217484219818,\n  \"y\" : -86.42333448949103\n  }"
         },
       "title" : "SelectKrakenTransform",
       "ports" : [
@@ -163,17 +243,6 @@
           },
         {
           "objectType" : "ExecPort",
-          "name" : "indice",
-          "nodePortType" : "Out",
-          "defaultValues" : {
-            "UInt32" : 0,
-            "UInt32[]" : []
-            },
-          "execPortType" : "In",
-          "typeSpec" : "UInt32[]"
-          },
-        {
-          "objectType" : "ExecPort",
           "name" : "result",
           "nodePortType" : "In",
           "defaultValues" : {
@@ -181,15 +250,44 @@
             },
           "execPortType" : "Out",
           "typeSpec" : "Mat44[]"
+          },
+        {
+          "objectType" : "ExecPort",
+          "metadata" : {},
+          "name" : "name",
+          "nodePortType" : "Out",
+          "defaultValues" : {
+            "String" : "RigSkeleton"
+            },
+          "execPortType" : "In",
+          "typeSpec" : "String"
+          },
+        {
+          "objectType" : "ExecPort",
+          "name" : "indice",
+          "nodePortType" : "Out",
+          "defaultValues" : {
+            "UInt32" : 0,
+            "UInt32[]" : [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+              ]
+            },
+          "execPortType" : "In",
+          "typeSpec" : "UInt32[]"
           }
         ],
       "extDeps" : {},
-      "presetGUID" : "840A9FC01FDEA59E405DEFBEC165C802",
+      "presetGUID" : "5D6C14F8FCC8570AB4D295D123B30292",
       "nodes" : [
         {
           "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":777.8490000000001,\"y\":261.444}"
+            "uiGraphPos" : "{\"x\":730.8490000000001,\"y\":338.281}"
             },
           "name" : "UpdateKrakenTransformInArray",
           "ports" : [
@@ -263,29 +361,89 @@
             }
           },
         {
-          "objectType" : "Get",
+          "objectType" : "Inst",
           "metadata" : {
-            "uiGraphPos" : "{\"x\":454.0,\"y\":222.0}"
+            "uiGraphPos" : "{\"x\":465.168,\"y\":315.075}"
             },
-          "name" : "get",
+          "name" : "func",
           "ports" : [
             {
-              "objectType" : "GetPort",
-              "name" : "value",
+              "objectType" : "InstPort",
+              "name" : "exec",
+              "nodePortType" : "IO"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "name",
+              "nodePortType" : "In"
+              },
+            {
+              "objectType" : "InstPort",
+              "name" : "transforms",
               "nodePortType" : "Out"
               }
             ],
-          "varPath" : "initializeSkeleton.transforms"
+          "definition" : {
+            "objectType" : "Func",
+            "title" : "SelectKrakenTransform",
+            "ports" : [
+              {
+                "objectType" : "ExecPort",
+                "name" : "exec",
+                "nodePortType" : "IO",
+                "defaultValues" : {
+                  "Execute" : {}
+                  },
+                "execPortType" : "IO",
+                "typeSpec" : "Execute"
+                },
+              {
+                "objectType" : "ExecPort",
+                "name" : "name",
+                "nodePortType" : "Out",
+                "defaultValues" : {
+                  "String" : ""
+                  },
+                "execPortType" : "In",
+                "typeSpec" : "String"
+                },
+              {
+                "objectType" : "ExecPort",
+                "name" : "transforms",
+                "nodePortType" : "In",
+                "defaultValues" : {
+                  "KrakenTransform[]" : []
+                  },
+                "execPortType" : "Out",
+                "typeSpec" : "KrakenTransform[]"
+                }
+              ],
+            "extDeps" : {
+              "KrakenForCanvas" : "*",
+              "Singletons" : "*"
+              },
+            "origPresetGUID" : "9A0C3806672B9D13C20FD33EE390F724",
+            "code" : "dfgEntry {
+  SkeletonSingleton ss = Singleton_get(name);
+  if( ss != null ){
+    transforms = ss.transforms;
+  }
+}
+"
+            }
           }
         ],
       "connections" : {
+        "name" : [
+          "func.name"
+          ],
         "indice" : [
           "UpdateKrakenTransformInArray.indice"
           ],
         "UpdateKrakenTransformInArray.result" : [
           "result"
           ],
-        "get.value" : [
+        "func.transforms" : [
           "UpdateKrakenTransformInArray.transforms"
           ]
         }

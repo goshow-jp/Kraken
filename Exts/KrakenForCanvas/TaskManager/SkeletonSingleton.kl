@@ -1,0 +1,6 @@
+require Singletons;
+require KrakenForCanvas;
+
+object SkeletonSingleton {
+  KrakenTransform transforms[];
+};

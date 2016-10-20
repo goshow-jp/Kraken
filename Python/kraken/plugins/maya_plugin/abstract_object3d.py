@@ -30,8 +30,7 @@ class AbstractSkeleton(Object3D):
         self.canvasNode = canvasNode
         self._boneCount = 0
         self.bones = {}
-
-        buildName = '{}Skeleton'.format(buildName)
+        self.buildName = buildName
 
         pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
                                   execPath="",
@@ -39,7 +38,7 @@ class AbstractSkeleton(Object3D):
 
         pm.FabricCanvasSetExtDeps(mayaNode=canvasNode,
                                   execPath="",
-                                  extDep="Kraken.KrakenForCanvas")
+                                  extDep="KrakenForCanvas")
 
         initializeSkeletonNode = pm.FabricCanvasAddGraph(mayaNode=canvasNode,
                                                          execPath="",
@@ -56,7 +55,7 @@ class AbstractSkeleton(Object3D):
                                                                  "Fabric.Core.Array.EmptyArray",
                                                                  dfgExec=self.containerNodeExec)
 
-        addBone = self.rigGraph.createNodeFromPreset(buildName + "push",
+        addBone = self.rigGraph.createNodeFromPreset(self.buildName + "push",
                                                      "Fabric.Core.Array.Push",
                                                      dfgExec=self.containerNodeExec)
 
@@ -74,7 +73,21 @@ class AbstractSkeleton(Object3D):
         self.setLastBoneNode(addBone)
         # self.skeletonDestNode = cacheNode
 
-        self.rigGraph.connectNodes(self.variableNode, "value", "", "exec", dfgExec=self.containerNodeExec)
+        # self.rigGraph.connectNodes(self.variableNode, "value", "", "exec", dfgExec=self.containerNodeExec)
+
+        self.storeSingleton = self.rigGraph.createNodeFromPreset(path + "Singleton",
+                                                                 "Kraken.KrakenForCanvas.KrakenSkeletonStoreAsSingleton",
+                                                                 dfgExec=self.containerNodeExec)
+        self.rigGraph.setPortDefaultValue(self.storeSingleton, "name", self.buildName, dfgExec=self.containerNodeExec)
+
+        self.cacheNode = self.rigGraph.createNodeFromPreset(path + "Cache",
+                                                            "Fabric.Core.Data.Cache",
+                                                            dfgExec=self.containerNodeExec)
+
+        self.rigGraph.connectNodes(self.variableNode, "value", self.storeSingleton, "transforms", dfgExec=self.containerNodeExec)
+        self.rigGraph.connectNodes(self.storeSingleton, "transforms", self.cacheNode, "value", dfgExec=self.containerNodeExec)
+        self.rigGraph.connectNodes(self.cacheNode, "value", "", "exec", dfgExec=self.containerNodeExec)
+
         self.rigGraph.getExec().connectTo("{}.exec".format(self.containerNodeName), ".exec")
 
     def getNode(self):
@@ -107,15 +120,6 @@ class AbstractSkeleton(Object3D):
         self.rigGraph.connectNodes(self.lastBoneNode, "array", addBone, "array", dfgExec=self.containerNodeExec)
         self.rigGraph.connectNodes(addBone, "array", self.variableNode, "value", dfgExec=self.containerNodeExec)
 
-        '''
-        pm.FabricCanvasSetPortDefaultValue(mayaNode=self.canvasNode,
-                                           execPath="initializeSkeleton",
-                                           portPath="{}.referencePose".format(boneNode),
-                                           type="Xfo",
-                                           value='{}'.format(abstractBone.getXfoAsJson()))
-
-        '''
-
         abstractBone.setBoneNode(boneNode)
         abstractBone.setAddBoneNode(addBone)
         abstractBone.setBoneIndex(self._boneCount)
@@ -128,14 +132,18 @@ class AbstractBone(Object3D):
 
     def __init__(self, kSceneItem, buildName, skeleton):
         super(AbstractBone, self).__init__(buildName, skeleton)
-
         self.canvasNode = skeleton.getNode()
         self.buildName = buildName
+        self.name = buildName
+        self.kSceneItem = kSceneItem
         self.shortName = kSceneItem.getName()
         self.path = kSceneItem.getPath()
 
         self.xfo = kSceneItem.xfo
         self._index = -1
+
+        self._srcBone = None
+        self._dstBones = []
 
         skeleton.addBone(self)
 
@@ -200,6 +208,18 @@ class AbstractBone(Object3D):
             portPath="{}.referencePose".format(self.boneNode),
             type="Xfo",
             value='{}'.format(self.getXfoAsJson()))
+
+    def addSrc(self, bone):
+        self._srcBone = bone
+
+    def addDst(self, bone):
+        self._dstBones.append(bone)
+
+    def getSrc(self):
+        return self._srcBone
+
+    def getDst(self):
+        return self._dstBones
 
     def getXfoAsJson(self):
         qat = self.xfo.ori

@@ -41,6 +41,11 @@ class CanvasConstraint(CanvasOperator):
             print("buildNodesFromConstraint: Unexpected class " + self.cnsClass)
             return False
 
+        self.abstractOnly = False
+        self.src = []
+        self.dst = []
+        self.kOpe = kConstraint
+
     def build(self, kConstraint, buildName):
         self.rigGraph.setCurrentGroup("Solvers")
         self.containerNodeName = self.rigGraph.createGraphNodeSI(kConstraint, buildName)
@@ -51,38 +56,33 @@ class CanvasConstraint(CanvasOperator):
         # typeTokens = self.nameTemplate['types']
         # opTypeToken = typeTokens.get(type(kConstraint).__name__, 'cns')
 
-        # self.cnsNodeName = '_'.join([kConstraint.getName(), opTypeToken])
-        # _cnsComputeNodeName = '_'.join([kConstraint.getName(), 'compute', opTypeToken])
-
         ##########################################################################################
-        # path = kConstraint.getPath()
-        # nodes = []
-
         constrainers = kConstraint.getConstrainers()
         constrainee = kConstraint.getConstrainee()
-        nerBones = [self.builder.getDCCSceneItem(x) for x in constrainers]
-        neeBone = self.builder.getDCCSceneItem(constrainee)
 
-        if len(nerBones) == 1:
+        if len(constrainers) == 1:
 
             preset = "Kraken.KrakenForCanvas.Constraints.ComputeKraken%s" % self.cnsClass
             tmpPath = "{}".format(self.containerNodeName)
             self.cnsComputeNodeName = self.rigGraph.createNodeFromPreset(
                 tmpPath, preset, title='compute', dfgExec=self.containerExec)
+            self.solverNodeName = self.cnsComputeNodeName
             self.solverSolveNodeName = self.cnsComputeNodeName
 
-            (nerNode, nerPort) = self.placeSelectBoneNode(nerBones, "{}|{}".format(self.containerNodeName, "constrainer"), skipIfDCCInput=False)
-            (neeNode, neePort) = self.placeSelectBoneNode(neeBone, "{}|{}".format(self.containerNodeName, "constrainee"), skipIfDCCInput=True)
+            (nerNode, nerPort, tmp) = self.placeSelectBoneNode(constrainers[0], "{}|{}".format(self.containerNodeName, "constrainer"), skipIfDCCInput=False, ioType="in")
+            (neeNode, neePort, tmp) = self.placeSelectBoneNode(constrainee, "{}|{}".format(self.containerNodeName, "constrainee"), skipIfDCCInput=True, ioType="out")
 
             self.conn(nerNode, nerPort, self.cnsComputeNodeName, 'constrainer')
             self.conn(neeNode, neePort, self.cnsComputeNodeName, 'constrainee')
 
             if kConstraint.getMaintainOffset():
-                # offset = self.calculateOffset(nerNode, nerPort, neeNode, neePort)
-                offset = self.calculateOffset(constrainers[0], constrainee, nerNode, nerPort, neeNode, neePort)
+                # offset = self.calculateOffset(constrainers[0], constrainee, nerNode, nerPort, neeNode, neePort)
+                offset = kConstraint.computeOffset().toMat44().getRTVal()
                 self.rigGraph.setPortDefaultValue(self.cnsComputeNodeName, "offset", offset, dfgExec=self.containerExec)
 
         else:
+            # TODO:
+            print "todo later", self.bulidName
             preset = "Kraken.KrakenForCanvas.Constraints.Kraken%s" % self.cnsClass
             constructNode = self.rigGraph.createNodeFromPresetSI(kConstraint, preset, title='constructor')
             lastNode = constructNode
@@ -117,51 +117,50 @@ class CanvasConstraint(CanvasOperator):
                 self.rigGraph.setPortDefaultValue(constructNode, "offset", offset)
         '''
 
-        self.placeUpdateBoneNode(constrainee, neeBone, "result")
+        neeBone = self.builder.getDCCSceneItem(constrainee)
+        portName, i = self.placeUpdateBoneNode(constrainee, neeBone, "result")
+        self.dst.append([portName, neeBone, "{}.{}".format(self.canvasNodeName, portName)])
         # self.setTransformPortSI(constrainee, computeNode, 'result')
-        # self._registerSceneItemPair(kConstraint, computeNode)
+        # self._registerSceneItemPair(kConstraint, self.rigGraph)
 
-    def placeSelectBoneNode(self, bone, path, skipIfDCCInput=False):
+    def placeSelectBoneNode(self, obj, path, skipIfDCCInput=False, ioType="in"):
         ''' returns node name and port name. '''
 
-        if isinstance(bone, list):
-            if len(bone) == 1:
-                if type(bone[0]) == AbstractBone:
-                    return self.placeSelectAbstractBoneNode(bone[0], path)
-                else:
-                    if not skipIfDCCInput:
-                        return self.addInputTransform(bone[0], path)
-                    else:
-                        return [None, None]
-            else:
-                # TODO:
-                pass
+        nodeName, portName, realPortName = [None, None, None]
+        bone = self.builder.getDCCSceneItem(obj)
 
         if type(bone) == AbstractBone:
-            return self.placeSelectAbstractBoneNode(bone, path)
+            if self.abstractOnly:
+                nodeName, portName, realPortName = self.placeSelectAbstractBoneNode(bone, bone.name, path)
+            elif "in" in ioType:
+                nodeName, portName, realPortName = self.addInputTransform(bone, str(bone.name), path)
+                canvasNode = self.rigGraph.getCanvasNode()
+                self.builder.setMat44Attr(canvasNode, realPortName, obj.globalXfo.toMat44())
         else:
             if not skipIfDCCInput:
-                return self.addInputTransform(bone, path)
-            else:
-                return [None, None]
+                nodeName, portName, realPortName = self.addInputTransform(bone, str(bone.name()), path)
 
-    def addInputTransform(self, bone, path):
-        name = str(bone.name())
-        self.rigGraph.getExec().addExecPort(name, self.client.DFG.PortTypes.In, "Mat44")
+        if "in" in ioType:
+            self.src.append([bone, realPortName])
+        return [nodeName, portName, realPortName]
+
+    def addInputTransform(self, bone, name, path):
+        realPortName = self.rigGraph.getExec().addExecPort(name, self.client.DFG.PortTypes.In, "Mat44")
         i = self.containerExec.addExecPort(name, self.client.DFG.PortTypes.In, "Mat44")
         self.rigGraph.connectNodes("", name, self.containerNodeName, i)
 
         # connectionTargets = self.prepareConnection(bone)
         self.prepareConnection(bone)
-        tgt = "{}.{}".format(self.canvasNodeName, bone.name())
+        tgt = "{}.{}".format(self.canvasNodeName, name)
         try:
-            pm.connectAttr(bone.attr('worldMatrix'), tgt)
+            if type(bone) is not AbstractBone:
+                pm.connectAttr(bone.attr('worldMatrix'), tgt)
         except RuntimeError as e:
             print e
 
-        return ["", i]
+        return ["", i, realPortName]
 
-    def placeSelectAbstractBoneNode(self, bone, path):
+    def placeSelectAbstractBoneNode(self, bone, name, path):
         if isinstance(bone, list):
             if len(bone) == 1:
                 array = False
@@ -180,29 +179,6 @@ class CanvasConstraint(CanvasOperator):
 
         rtVal = self.client.RT.types.UInt32.createArray(ids)
         self.containerExec.setPortDefaultValue("{}.indice".format(sel), rtVal, False)
-
-        # Mat44[] into Xfo
-        '''
-        if not array:
-            convCode = textwrap.dedent("""
-                dfgEntry{{
-                  result = Xfo(input[0].global);
-                }}
-            """.format())
-
-        else:
-            convCode = textwrap.dedent("""
-                dfgEntry{{
-                  result = Xfo(input[0].global);
-                }}
-            """.format())
-
-        toXfo = self.rigGraph.createFunctionNode(path, "ToXfo", dfgExec=self.containerExec)
-        convExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, toXfo))
-        i = convExec.addExecPort("input", self.client.DFG.PortTypes.In, "Mat44[]")
-        o = convExec.addExecPort("result", self.client.DFG.PortTypes.Out, "Xfo")
-        convExec.setCode(convCode)
-        '''
 
         # Mat44[] into Mat44
         if not array:
@@ -228,53 +204,46 @@ class CanvasConstraint(CanvasOperator):
         convExec.setCode(convCode)
 
         self.rigGraph.connectNodes(sel, "result", toMat44, i, dfgExec=self.containerExec)
-        return toMat44, o
+        return toMat44, o, ""
 
     def placeUpdateBoneNode(self, constrainee, bone, path):
 
         if type(bone) == AbstractBone:
-            return self.placeUpdateAbstractBoneNode(bone, path)
+            if self.abstractOnly:
+                return self.placeUpdateAbstractBoneNode(constrainee, bone, path)
+            else:
+                return self.addOutputTransform(constrainee, bone.name, path)
 
         else:
-            return self.addOutputTransform(constrainee, bone, path)
+            return self.addOutputTransform(constrainee, bone.name(), path)
 
-    def placeUpdateAbstractBoneNode(self, bone, path):
+    def placeUpdateAbstractBoneNode(self, nee, bone, path):
         preset = "Kraken.KrakenAnimation.UpdateKrakenTransform"
         update = self.addPreset(path, preset, title=bone.shortName)
         rtVal = self.client.RT.types.UInt32(bone.id)
         self.containerExec.setPortDefaultValue("{}.index".format(update), rtVal, False)
 
-        '''
-        convCode = textwrap.dedent("""
-            dfgEntry{{
-                result = input[0].xfo.toMat44();
-            }}
-        """.format())
-        toMat44 = self.rigGraph.createFunctionNode(path, "toMat44", dfgExec=self.containerExec)
-        convExec = self.rigGraph.getSubExec("{}.{}".format(self.containerNodeName, toMat44))
-        i = convExec.addExecPort("input", self.client.DFG.PortTypes.In, "Xfo")
-        o = convExec.addExecPort("result", self.client.DFG.PortTypes.Out, "Mat44")
-        convExec.setCode(convCode)
-
-        self.conn(self.cnsComputeNodeName, "result", toMat44, i)
-        self.conn(toMat44, o, update, "element")
-        '''
-
         self.conn(self.cnsComputeNodeName, "result", update, "element")
         # FIXME: achieving overlapping connection on exec, can not use GraphManager.connectNodes()
         self.containerExec.connectTo("{}.exec".format(update), ".exec")
 
-    def addOutputTransform(self, nee, bone, path):
-        i = self.containerExec.addExecPort(str(bone.name()), self.client.DFG.PortTypes.Out, "Mat44")
-        self.conn(self.cnsComputeNodeName, "result", "", bone.name())
+        return ["", -1]
+
+    def addOutputTransform(self, nee, boneName, path):
+        i = self.containerExec.addExecPort(str(boneName), self.client.DFG.PortTypes.Out, "Mat44")
+        try:
+            self.conn(self.cnsComputeNodeName, "result", "", boneName)
+        except Exception:
+            pass
 
         # force evaluate before done connect
+        # FIXME:
         self.rigGraph.computeCurrentPortValue(self.cnsComputeNodeName, 'result', dfgExec=self.containerExec)
 
         connTargets = self.prepareConnection(nee)
-        self.makeConnectOutput(self.buildName, bone.name(), "Out", "Mat44", connTargets)
+        portName = self.makeConnectOutput(self.buildName, boneName, "Out", "Mat44", connTargets)
 
-        return ["", i]
+        return [portName, i]
 
     def calculateOffset(self, nerBone, neeBone, nodeA, portA, nodeB, portB):
         tmpPath = "{}".format(self.containerNodeName)

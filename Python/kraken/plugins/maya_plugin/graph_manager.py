@@ -23,10 +23,10 @@ class MayaGraphManager(GraphManager):
     def __init__(self, nodeName):
         super(MayaGraphManager, self).__init__()
 
-        canvasNode = pm.createNode('canvasNode', name=nodeName)
+        self.canvasNode = pm.createNode('canvasNode', name=nodeName)
         # mel.eval('setAttr "{}.nodeState" 1;'.format(nodeName))
         ctxtId = mel.eval('FabricCanvasGetContextID;')
-        bindId = mel.eval('FabricCanvasGetBindingID -node "{}";'.format(canvasNode))
+        bindId = mel.eval('FabricCanvasGetBindingID -node "{}";'.format(self.canvasNode))
         client = core.createClient({'contextID': ctxtId, 'guarded': True})
 
         # client = ks.getCoreClient()
@@ -39,7 +39,7 @@ class MayaGraphManager(GraphManager):
         self._GraphManager__dfgHost = client.getDFGHost()
         self._GraphManager__dfgBinding = dfgbinding
         self._GraphManager__dfgExec = dfgexec
-        self.__nodeName = canvasNode
+        self.__nodeName = self.canvasNode
         self.__name__ = "MayaGraphManager"
         self.dfgBinding = dfgbinding
 
@@ -47,7 +47,44 @@ class MayaGraphManager(GraphManager):
     def nodeName(self):
         return self.__nodeName
 
+    def getCanvasNode(self):
+        return self.canvasNode
+
     def __addNodeToGroup(self, node):
         if(not self._GraphManager__dfgCurrentGroup):
             return
         self._GraphManager__dfgGroups[self._GraphManager__dfgCurrentGroup].append(node)
+
+    ###################################
+    # implement Maya object's behaviour
+    ###################################
+
+    def setTransform(self, kObject):
+        self.setReferencePose(self.__xfo)
+
+    def lockParameters(self, kObject):
+        pass
+
+    def setVisibility(self, kObject):
+        pass
+
+    def setObjectColor(self, kObject):
+        pass
+
+    def setRotation(self, quat, space):
+        pass
+
+    def setRotationOrder(self, axis,  flag):
+        pass
+
+    def setScale(self, vec):
+        pass
+
+    def setTranslation(self, vec, space):
+        pass
+
+    def exists(self):
+        pass
+
+    def getShape(self):
+        return None
