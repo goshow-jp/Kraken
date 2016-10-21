@@ -11,20 +11,13 @@ from kraken.log import getLogger
 
 from kraken.core.kraken_system import ks
 from kraken.core.configs.config import Config
-
 from kraken.core.maths import Vec2, Vec3, Xfo, Mat44
-# from kraken.core.maths import Vec2, Vec3, Xfo, Mat44, Math_radToDeg, RotationOrder
-
-# from kraken.core.builder import Builder
 from kraken.core.objects.object_3d import Object3D
 from kraken.core.objects.attributes.attribute import Attribute
 
-# from kraken.plugins.maya_plugin.graph_manager import MayaGraphManager
 from kraken.plugins.maya_plugin.abstract_object3d import AbstractBone  # , AbstractSkeleton
 
 import pymel.core as pm
-# import pymel.core.datatypes as dt
-# import maya.cmds as cmds
 
 
 logger = getLogger('kraken')
@@ -46,6 +39,8 @@ class CanvasOperator(object):
         self.config = Config.getInstance()
 
         self.abstractOnly = False
+        self.abstractInputs = []
+        self.abstractOutputs = []
         self.src = []
         self.dst = []
         self.kOpe = kOperator
@@ -144,7 +139,10 @@ class CanvasOperator(object):
 
         if self.isIntegrateDrawDebugAndRigScale:
             self.integrateDrawDebugAndRigScale()
-            pm.setAttr(self.canvasNodeName + ".rigScale", 1.0)
+            try:
+                pm.setAttr(self.canvasNodeName + ".rigScale", 1.0)
+            except RuntimeError:
+                pass
 
     def getPortCount(self, kOperator):
         if self.isKLBased is True:
@@ -597,7 +595,8 @@ class CanvasOperator(object):
 
     def _connectInput(self, kOperator, buildName, portName, portConnectionType, portDataType, tgt, opObject, dccSceneItem, index=-1):
 
-        desiredPortName = "{}_{}".format(buildName, portName)
+        # FIXME: desiredPortName = "{}_{}".format(buildName, portName)
+        desiredPortName = "{}".format(portName)
         realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                               execPath="",
                                               desiredPortName=desiredPortName,
@@ -618,7 +617,8 @@ class CanvasOperator(object):
                                    srcPortPath=realPortName,
                                    dstPortPath="{}.{}".format(self.containerNodeName, portName))
 
-        tgt = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, tgt.split(".")[-1]))
+        # FIXME:
+        # tgt = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, tgt.split(".")[-1]))
 
         if type(dccSceneItem) == AbstractBone:
             if self.abstractOnly:
@@ -626,6 +626,9 @@ class CanvasOperator(object):
                 return
             else:
                 # connects with other operator node later, post build process
+                src = {"name": "", "obj": dccSceneItem}
+                dst = {"name": tgt, "obj": self}
+                self.abstractInputs.append(self.Connection(src=src, dst=dst))
                 self.src.append([portName, dccSceneItem, tgt])
                 self.selectKrakenTransformNodeName = ""
                 return
@@ -679,7 +682,9 @@ class CanvasOperator(object):
 
     def _connectOutput(self, buildName, portName, portConnectionType, portDataType, src, opObject, dccSceneItem, index=-1):
 
-        desiredPortName = "{}_{}".format(buildName, portName)
+        # FIXME:
+        # desiredPortName = "{}_{}".format(buildName, portName)
+        desiredPortName = "{}".format(portName)
         realPortName = pm.FabricCanvasAddPort(mayaNode=self.canvasNodeName,
                                               execPath="",
                                               desiredPortName=desiredPortName,
@@ -700,7 +705,8 @@ class CanvasOperator(object):
                                    srcPortPath="{}.{}".format(self.containerNodeName, portName),
                                    dstPortPath=realPortName)
 
-        src = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, src.split(".")[-1]))
+        # FIXME
+        # src = "{}.{}".format(self.canvasNodeName, "{}_{}".format(buildName, src.split(".")[-1]))
 
         # if type(dccSceneItem) == AbstractBone and not self.abstractOnly:
         if type(dccSceneItem) == AbstractBone:
@@ -709,7 +715,9 @@ class CanvasOperator(object):
                 return realPortName
             else:
                 # connects with other operator node later, post build process
-                # self.dst.append([dccSceneItem.getName(), dccSceneItem, src])
+                s = {"name": src, "obj": self}
+                d = {"name": "", "obj": dccSceneItem}
+                self.abstractOutputs.append(self.Connection(src=s, dst=d))
                 self.dst.append([portName, dccSceneItem, src])
                 return realPortName
 
@@ -867,3 +875,28 @@ class CanvasOperator(object):
 
         dfgExec.connectTo("drawDebug", "{}.drawDebug".format(self.containerNodeName))
         dfgExec.connectTo("rigScale", "{}.rigScale".format(self.containerNodeName))
+
+    class Connection(object):
+
+        def __init__(self, src=None, dst=None):
+            if not src and not dst:
+                raise
+
+            self.src = src
+            self.dst = dst
+
+        def getSrcPortName(self):
+            return self.src["name"]
+
+        def getDstPortName(self):
+            return self.dst["name"]
+
+        def getSrcObject(self):
+            return self.src["obj"]
+
+        def getDstObject(self):
+            return self.dst["obj"]
+
+        def __str__(self):
+            return "srcName: {}\ndstName: {}\nsrcObj: {}\ndstObj: {}".format(
+                self.getSrcPortName(), self.getDstPortName(), self.getSrcObject(), self.getDstObject())

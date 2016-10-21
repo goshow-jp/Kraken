@@ -42,6 +42,8 @@ class CanvasConstraint(CanvasOperator):
             return False
 
         self.abstractOnly = False
+        self.abstractInputs = []
+        self.abstractOutputs = []
         self.src = []
         self.dst = []
         self.kOpe = kConstraint
@@ -119,6 +121,10 @@ class CanvasConstraint(CanvasOperator):
 
         neeBone = self.builder.getDCCSceneItem(constrainee)
         portName, i = self.placeUpdateBoneNode(constrainee, neeBone, "result")
+
+        s = {"name": "{}.{}".format(self.canvasNodeName, portName), "obj": self}
+        d = {"name": portName, "obj": neeBone}
+        self.abstractOutputs.append(self.Connection(src=s, dst=d))
         self.dst.append([portName, neeBone, "{}.{}".format(self.canvasNodeName, portName)])
         # self.setTransformPortSI(constrainee, computeNode, 'result')
         # self._registerSceneItemPair(kConstraint, self.rigGraph)
@@ -141,6 +147,9 @@ class CanvasConstraint(CanvasOperator):
                 nodeName, portName, realPortName = self.addInputTransform(bone, str(bone.name()), path)
 
         if "in" in ioType:
+            src = {"name": nodeName, "obj": bone}
+            dst = {"name": "{}.{}".format(self.canvasNodeName, realPortName), "obj": self}
+            self.abstractInputs.append(self.Connection(src=src, dst=dst))
             self.src.append([bone, realPortName])
         return [nodeName, portName, realPortName]
 

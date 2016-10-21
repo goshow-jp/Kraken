@@ -1247,153 +1247,52 @@ class Builder(Builder):
 
         return True
 
-    def _searchConstrainSrc(self, s):
-        i, x = self._searchConstrainSrcByName(s[0])
-        if not x:
-            i, x = self._searchConstrainSrcByObj(s[1])
+    def _searchSrcObject(self, conn):
 
-        return i, x
+        for cns in self.__abstractConstraints:
+            # can passthrogh
+            if cns.kOpe.getMaintainOffset() and cns.cnsClass == "PoseConstraint":
+                print cns.buildName, False
 
-    def _searchConstrainSrcByName(self, src):
-        for a in self.__abstractConstraints:
-            for i, d in enumerate(a.dst):
-                if d[0] == src:
-                    return i, a
-                elif type(src) != str and d[0] == src.getName():
-                    return i, a
-        else:
-            return None, None
+            for i, out in enumerate(cns.abstractOutputs):
+                if out.getDstObject() == conn.getSrcObject():
+                    return i, out
 
-    def _searchConstrainSrcByObj(self, src):
-        for a in self.__abstractConstraints:
-            for i, d in enumerate(a.dst):
-                if d[0] == src:
-                    return i, a
-                elif type(src) != str and d[0] == src.getName():
-                    return i, a
-        else:
-            return None, None
+        for ops in self.__klCanvasOps:
+            for i, out in enumerate(ops.abstractOutputs):
+                if out.getDstObject() == conn.getSrcObject():
+                    return i, out
 
-    def _searchOperatorDst(self, dst):
-        for a in self.__klCanvasOps:
-            for i, d in enumerate(a.dst):
-                if d[1] == dst:
-                    return i, a
-        else:
-            return None, None
+        return None, None
 
-    def _searchOperatorDstByName(self, dst):
-        for a in self.__klCanvasOps:
-            for i, d in enumerate(a.dst):
-                if d[2] == dst:
-                    return i, a
-        else:
-            return None, None
+    def _connectToSrc(self, targetList):
 
-    def connectConstraintIO(self):
-
-        for c in self.__abstractConstraints:
-
-            for s in c.src:
-                if type(s[0]) != AbstractBone:
-                    # already connected scene item
-                    continue
-
-                i, x = self._searchConstrainSrc(s)
-                if not x:
-                    i, x = self._searchOperatorDst(s[0])
-                    if not x:
-                        print "pass:c", c.buildName, s
-                        continue
-
-                # dcc = self.getDCCSceneItem(x.kOpe)
-                t = x.dst[i][2]
-                o = "{}Canvas.{}".format(c.buildName, s[1])
-
-                try:
-                    pm.connectAttr(t, o, force=True)
-                except RuntimeError as e:
-                    print ""
-                    print "ng:b"
-                    print c.buildName, s
-                    print x.dst
-                    print x.src
-                    print t
-                    print o
-                    print e
-                    print ""
-                    print ""
-
-    def connectOperatorIO(self):
-
-        for op in self.__klCanvasOps:
+        for op in targetList:
             if not op.src:
                 continue
 
-            for s in op.src:
+            for input in op.abstractInputs:
+                if type(input.getSrcObject()) != AbstractBone:
+                    # already connected if scene item
+                    continue
 
-                i, src = self._searchConstrainSrcByName(s[1])
-                if not src:
-                    i, src = self._searchOperatorDst(s[1])
-                    if not src:
-                        i, src = self._searchOperatorDstByName(s[2])
-                        if not src:
-                            print "pass:b", s
-                            continue
+                i, x = self._searchSrcObject(input)
 
-                t = "{}".format(src.dst[i][2])
-                o = s[2]
+                if not x:
+                    print "not found src object for:", input
+                    continue
+
+                f = x.getSrcPortName()
+                t = input.getDstPortName()
 
                 try:
-                    pm.connectAttr(t, o, force=True)
+                    pm.connectAttr(f, t, force=True)
                 except RuntimeError as e:
-                    print ""
-                    print "ng:a"
-                    print op.buildName, s
-                    print src.src
-                    print src.dst
-                    print t
-                    print o
                     print e
-                    print ""
-                    print ""
 
     def connectDccNodes(self):
-
-        print "<<<<<<<<<<<<<<<<<<<<<<<<<<"
-        print "dump start"
-
-        # dump constraints
-        for a in self.__abstractConstraints:
-            print a.buildName
-            for c in a.kOpe.getConstrainers():
-                print c.getName()
-
-            print "---"
-            for s in a.src:
-                print s
-
-            print "---"
-            for d in a.dst:
-                print d
-            print ""
-
-        print "================="
-        # dump constraints
-        for a in self.__klCanvasOps:
-            print a.buildName
-            for s in a.src:
-                print s
-
-            print "---"
-            for d in a.dst:
-                print d
-            print ""
-
-        print ">>>>>>>>>>>>>>>>>>>>>>>>>>"
-
-        self.connectOperatorIO()
-        self.connectConstraintIO()
+        self._connectToSrc(self.__abstractConstraints)
+        self._connectToSrc(self.__klCanvasOps)
 
     def _postBuild(self, kSceneItem):
         """Post-Build commands.
