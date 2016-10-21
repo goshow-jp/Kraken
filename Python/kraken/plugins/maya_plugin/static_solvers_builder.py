@@ -1247,39 +1247,54 @@ class Builder(Builder):
 
         return True
 
-    def _searchSrcObject(self, conn):
+    def _searchSrcObject(self, conn, io="in"):
 
+        canPassThrough = False
         for cns in self.__abstractConstraints:
-            # can passthrogh
-            if cns.kOpe.getMaintainOffset() and cns.cnsClass == "PoseConstraint":
-                print cns.buildName, False
 
-            for i, out in enumerate(cns.abstractOutputs):
+            if cns.kOpe.getMaintainOffset() and cns.cnsClass == "PoseConstraint":
+                canPassThrough = True
+
+            if "in" in io:
+                it = cns.abstractOutputs
+            else:
+                it = cns.abstractInputs
+
+            for out in it:
                 if out.getDstObject() == conn.getSrcObject():
-                    return i, out
+                    if canPassThrough and "in" in io:
+                        # print "can pass through"
+                        # print out
+                        tmp = self._searchSrcObject(self._searchSrcObject(out, io="out"))
+                        if not tmp:
+                            return out
+                        else:
+                            return tmp
+                    else:
+                        return out
 
         for ops in self.__klCanvasOps:
-            for i, out in enumerate(ops.abstractOutputs):
+            for out in ops.abstractOutputs:
                 if out.getDstObject() == conn.getSrcObject():
-                    return i, out
+                    return out
 
-        return None, None
+        return None
 
     def _connectToSrc(self, targetList):
 
         for op in targetList:
-            if not op.src:
-                continue
 
+            # print "\nsearch", op.buildName
             for input in op.abstractInputs:
                 if type(input.getSrcObject()) != AbstractBone:
                     # already connected if scene item
+                    # print "pass this is not abstract bone"
                     continue
 
-                i, x = self._searchSrcObject(input)
+                x = self._searchSrcObject(input)
 
                 if not x:
-                    print "not found src object for:", input
+                    print "not found src object for:\n", input
                     continue
 
                 f = x.getSrcPortName()
@@ -1288,9 +1303,30 @@ class Builder(Builder):
                 try:
                     pm.connectAttr(f, t, force=True)
                 except RuntimeError as e:
-                    print e
+                    pass
+                    # print ""
+                    # print "ng:b"
+                    # print op.buildName
+                    # print "x", x
+                    # print "i", input
+                    # print "f", f
+                    # print "t", t
+                    # print "e", e
+                    # print ""
+                    # print ""
 
     def connectDccNodes(self):
+        '''
+        for a in self.__abstractConstraints:
+            print "\n\n", a.buildName
+            print "-- in"
+            for out in a.abstractOutputs:
+                print out
+            print "\n-- out"
+            for out in a.abstractInputs:
+                print out
+        '''
+
         self._connectToSrc(self.__abstractConstraints)
         self._connectToSrc(self.__klCanvasOps)
 
