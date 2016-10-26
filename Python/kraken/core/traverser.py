@@ -11,6 +11,7 @@ from kraken.core.objects.components.component import Component
 from kraken.core.objects.attributes.attribute_group import AttributeGroup
 from kraken.core.objects.constraints.constraint import Constraint
 from kraken.core.objects.operators.operator import Operator
+from kraken.core.maths import Xfo
 
 
 class Traverser(object):
@@ -140,6 +141,7 @@ class Traverser(object):
                              discoverCallback,
                              discoveredItemsFirst)
 
+        self.optimizeConstraints()
         return self.items
 
     def __collectVisitedItem(self, item, itemCallback):
@@ -278,3 +280,173 @@ class Traverser(object):
             result.append(source)
 
         return result
+
+    # ================
+    # Optimaze Methods
+    # ================
+    def optimizeConstraints(self):
+
+        constraints = self.getItemsOfType('Constraint')
+        connections, srcIndice, dstIndice = self._gatherConnections(constraints)
+
+        for conn in connections:
+
+            new = self._searchConstraintConnectionAscendant(conn, dstIndice)
+            new = self._searchConstraintConnectionDescendant(new, srcIndice)
+
+            # connection does not terminal
+            if new[-1] != conn:
+                continue
+
+            # not changed
+            if len(new) == 1:
+                continue
+            elif len(new) < 1:
+                # print "something wrong"
+                continue
+
+            newSrcConn = new[0]
+            newDstConn = conn
+
+            if newSrcConn["src"] not in newDstConn["cns"].getConstrainers():
+                newDstConn["cns"].setConstrainer(newSrcConn["src"])
+                canPassed = self._getMaintainOffsetInConnections(new)
+                newDstConn["cns"].setMaintainOffset(canPassed)
+                newDstConn["refCount"] = "never"
+            # else:
+            #     print "already in constrainers"
+
+        for conn in connections:
+            if conn["refCount"] != "never" and conn["refCount"] < 1:
+                try:
+                    self.items.remove(conn["cns"])
+                except ValueError:
+                    pass
+
+    def _gatherConnections(self, constraints):
+        connections = []
+        bySrc = {}
+        byDst = {}
+
+        for cns in constraints:
+
+            if not self.isConstrainPartOfComponentIO(cns):
+                continue
+
+            dst = cns.getConstrainee()
+            for src in cns.getConstrainers():
+                x = {
+                    'src': src,
+                    'dst': dst,
+                    'cns': cns,
+                    'betweenComponentIO': self.isConstrainPartOfComponentIO(cns),
+                    'refCount': 1
+                }
+                connections.append(x)
+
+                bySrc[src] = x  # maybe duped key
+                byDst[dst] = x
+
+        return connections, bySrc, byDst
+
+    def _searchConstraintConnectionAscendant(self, connections, dstIndice):
+        if type(connections) != list:
+            connections = [connections]
+
+        conn = connections[0]
+        src = conn["src"]
+
+        if src in dstIndice:
+            grandConn = dstIndice[src]
+
+            if self.isConnectionCanPassedThrough(grandConn):
+                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+                connections.insert(0, grandConn)
+                return self._searchConstraintConnectionAscendant(connections, dstIndice)
+
+            else:
+                return connections
+
+        else:
+            return connections
+
+    def _searchConstraintConnectionDescendant(self, connections, srcIndice):
+        if type(connections) != list:
+            connections = [connections]
+
+        conn = connections[-1]
+        dst = conn["dst"]
+
+        if dst in srcIndice:
+            grandConn = srcIndice[dst]
+
+            if self.isConnectionCanPassedThrough(grandConn):
+                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+                connections.append(grandConn)
+                return self._searchConstraintConnectionDescendant(connections, srcIndice)
+
+            else:
+                return connections
+
+        else:
+            return connections
+
+    def _getMaintainOffsetInConnections(self, connections):
+        for conn in connections:
+            if not self.isConstraintCanPassedThrough(conn["cns"]):
+                return True
+        else:
+            return False
+
+    def isItemComponentIO(self, kSceneItem):
+        return (
+            (kSceneItem.getTypeName() == 'ComponentInput')
+            or
+            (kSceneItem.getTypeName() == 'ComponentOutput')
+        )
+
+    def isConstrainBetweenComponentIO(self, kConstraint):
+        constrainee = kConstraint.getConstrainee()
+        constrainer = kConstraint.getConstrainers()[0]
+
+        return (
+            (self.isItemComponentIO(constrainee) and self.isItemComponentIO(constrainer))
+        )
+
+    def isConstrainPartOfComponentIO(self, kConstraint):
+        constrainee = kConstraint.getConstrainee()
+        constrainers = kConstraint.getConstrainers()
+
+        for c in constrainers:
+            if c.getTypeName() in ['ComponentOutput', 'ComponentInput']:
+                return True
+
+        return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
+
+    def isSrcOrDstPartOfComponentIO(self, src, dst):
+        return ((src.getTypeName() in ['ComponentInput', 'ComponentOutput']) or
+                (dst.getTypeName() in ['ComponentInput', 'ComponentOutput']))
+
+    def isConstraintCanPassedThrough(self, kConstraint):
+        if not kConstraint:
+            return False
+
+        if kConstraint.getMaintainOffset():
+            if kConstraint.computeOffset() == Xfo():
+                return True
+
+            return False
+
+        return True
+
+    def isConnectionCanPassedThrough(self, connection):
+        ''' connection: {'src', 'dst', 'cns', 'betweenComponentIO': boolean} '''
+        cns = connection["cns"]
+
+        # if not self.isConstraintCanPassedThrough(cns):
+        #     return False
+
+        if not connection['betweenComponentIO']:
+            return False
+
+        return True
