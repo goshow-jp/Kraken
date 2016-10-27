@@ -679,7 +679,7 @@ class Builder(object):
         traverser = Traverser('Build')
         for rootItem in rootItems:
             traverser.addRootItem(rootItem)
-        traverser.traverse()
+        traverser.traverse(toOptimize=True)
 
         try:
             self._preBuild(kSceneItem)

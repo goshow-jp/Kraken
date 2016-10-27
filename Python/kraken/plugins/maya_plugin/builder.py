@@ -21,6 +21,7 @@ from kraken.core.objects.attributes.attribute import Attribute
 from kraken.plugins.maya_plugin.utils import *
 
 from kraken.helpers.utility_methods import prepareToSave, prepareToLoad
+from kraken.core.traverser import Traverser
 
 import maya.cmds as cmds
 
@@ -1421,6 +1422,69 @@ class Builder(Builder):
 
         return True
 
+    # ================
+    # Optimize Methods
+    # ================
+    def postBuildOptimize(self, kSceneItem):
+        traverser = Traverser('Children')
+        traverser.addRootItem(kSceneItem)
+
+        rootItems = traverser.traverse(
+            discoverCallback=traverser.discoverChildren,
+            discoveredItemsFirst=False)
+
+        traverser = Traverser('Optimizer')
+        for rootItem in rootItems:
+            traverser.addRootItem(rootItem)
+        traverser.traverse(toOptimize=True)
+
+        self.optimizeOperatorInput(traverser)
+        self.optimizeRedudantCmpOut(traverser)
+
+    def optimizeOperatorInput(self, traverser):
+
+        conns = traverser.getOperatorsCanBeDirectConnect()
+
+        for conn in conns:
+            srcItem = self.getDCCSceneItem(conn['srcOperator'])
+            dstItem = self.getDCCSceneItem(conn['dstOperator'])
+
+            srcPortName = conn['srcPortName']
+            dstPortName = conn['dstPortName']
+
+            srcIndex = conn['srcIndex']
+            dstIndex = conn['dstIndex']
+
+            srcPortName = "{}[{}]".format(srcPortName, srcIndex) if srcIndex > -1 else srcPortName
+            dstPortName = "{}[{}]".format(dstPortName, dstIndex) if dstIndex > -1 else dstPortName
+
+            s = "{}.{}".format(srcItem.name(), srcPortName)
+            d = "{}.{}".format(dstItem.name(), dstPortName)
+
+            try:
+                pm.connectAttr(s, d, force=True)
+            except RuntimeError as e:
+                logger.error(e)
+
+    def optimizeRedudantCmpOut(self, traverser):
+
+        def _notConnectedAsAnySource(outputName):
+            path = "{}".format(outputName)
+            con = cmds.listConnections(path, source=True)
+            if con is None:
+                return True
+            return len(con) == 0
+
+        outputs = traverser.getItemsOfType('ComponentOutput')
+
+        for output in outputs:
+            dccOutputObject = self.getDCCSceneItem(output)
+            if not dccOutputObject:
+                continue
+
+            if _notConnectedAsAnySource(dccOutputObject.name()):
+                pm.delete(dccOutputObject)
+
     # ==============
     # Build Methods
     # ==============
@@ -1450,5 +1514,6 @@ class Builder(Builder):
         """
 
         super(Builder, self)._postBuild(kSceneItem)
+        self.postBuildOptimize(kSceneItem)
 
         return True
