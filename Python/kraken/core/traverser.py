@@ -11,6 +11,7 @@ from kraken.core.objects.components.component import Component
 from kraken.core.objects.attributes.attribute_group import AttributeGroup
 from kraken.core.objects.constraints.constraint import Constraint
 from kraken.core.objects.operators.operator import Operator
+from kraken.core.maths import Xfo
 
 
 class Traverser(object):
@@ -118,7 +119,7 @@ class Traverser(object):
         self._items = []
 
     def traverse(self, itemCallback=None, discoverCallback=None,
-                 discoveredItemsFirst=True):
+                 discoveredItemsFirst=True, toOptimize=False):
         """Visits all objects within this Traverser based on the root items.
 
         Args:
@@ -139,6 +140,10 @@ class Traverser(object):
                              itemCallback,
                              discoverCallback,
                              discoveredItemsFirst)
+
+        if toOptimize:
+            self.optimizeOperatorInput()
+            self.optimizeConstraints()
 
         return self.items
 
@@ -181,9 +186,9 @@ class Traverser(object):
             if item.isTypeOf("Attribute") and not self._visited.get(item.getParent().getId(), False):
                 self._visited[item.getId()] = False
                 self.__visitItem(item.getParent(),
-                             itemCallback,
-                             discoverCallback,
-                             discoveredItemsFirst)
+                                 itemCallback,
+                                 discoverCallback,
+                                 discoveredItemsFirst)
                 return False
 
             self.__visitItem(item.getParent(),
@@ -278,3 +283,396 @@ class Traverser(object):
             result.append(source)
 
         return result
+
+    # ================
+    # Optimaze Methods
+    # ================
+    def optimizeOperatorInput(self):
+        """Optimize self.items on operator inputs.
+
+            Shortcut redudant constraint that can be passed through.
+
+        """
+
+        constraints = self.getItemsOfType('Constraint')
+        operators = self.getItemsOfType('KLOperator')
+        operators.extend(self.getItemsOfType('CanvasOperator'))
+
+        cnsConnections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+        opeOutputIndice = self._gatherOperatorConnections(operators)
+
+        def getNewSrc(ope, portItem):
+
+            if not self.isItemComponentIO(portItem):
+                return portItem
+
+            if portItem in dstIndice:
+                anscestor = self._searchConstraintConnectionAscendant([dstIndice[portItem]], dstIndice)
+                return anscestor[0]['src']
+            elif portItem in opeOutputIndice:
+                # TODO:
+                return portItem
+            else:
+                return portItem
+
+        for ope in operators:
+            for portName, portItem in ope.inputs.iteritems():
+                if type(portItem) == list:  # array port
+                    news = [getNewSrc(ope, ele) for ele in portItem]
+                else:
+                    news = getNewSrc(ope, portItem)
+
+                ope.inputs[portName] = news
+
+    def getOperatorsCanBeDirectConnect(self):
+        """Retruns operator inforamions that can be direct connect with another operator.
+
+        Returns:
+            list[dict]: operator inforamtion that input can be direct connect with its src operator.
+                    information contain as dict.
+
+        """
+
+        operators = self.getItemsOfType('KLOperator')
+        operators.extend(self.getItemsOfType('CanvasOperator'))
+        opeOutputIndice = self._gatherOperatorConnections(operators)
+        result = []
+
+        def _append(ope, portItem, portName, index):
+            if not self.isItemComponentIO(portItem):
+                return
+
+            if portItem in opeOutputIndice:
+                conn = opeOutputIndice[portItem]
+                result.append(
+                    {
+                        'srcOperator': conn['ope'],
+                        'dstOperator': ope,
+                        'srcPortName': conn['name'],
+                        'dstPortName': portName,
+                        'srcIndex': conn['index'],
+                        'dstIndex': index
+                    }
+                )
+
+        for ope in operators:
+            for portName, portItem in ope.inputs.iteritems():
+                if type(portItem) == list:  # array port
+                    for i, ele in enumerate(portItem):
+                        _append(ope, ele, portName, i)
+                else:
+                    _append(ope, portItem, portName, -1)
+
+        return result
+
+    def optimizeConstraints(self):
+        """Optimize self.items on Constraints.
+
+            Remove redudant constraint that can be passed through with another item.
+
+        """
+
+        constraints = self.getItemsOfType('Constraint')
+        connections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+
+        for conn in connections:
+
+            new = self._searchConstraintConnectionAscendant([conn], dstIndice)
+            new = self._searchConstraintConnectionDescendant(new, srcIndice)
+
+            # connection does not terminal
+            if new[-1] != conn:
+                continue
+
+            # not changed
+            if len(new) == 1:
+                continue
+            elif len(new) < 1:
+                # print "something wrong"
+                continue
+
+            newSrcConn = new[0]
+            newDstConn = conn
+
+            if newSrcConn["src"] not in newDstConn["cns"].getConstrainers():
+                newDstConn["cns"].setConstrainer(newSrcConn["src"])
+                canPassed = self._getMaintainOffsetInConnections(new)
+                newDstConn["cns"].setMaintainOffset(canPassed)
+                newDstConn["refCount"] = "never"
+            # else:
+            #     print "already in constrainers"
+
+        for conn in connections:
+            if conn["refCount"] != "never" and conn["refCount"] < 1:
+                try:
+                    self.items.remove(conn["cns"])
+                except ValueError:
+                    pass
+
+    def _gatherOperatorConnections(self, operators):
+        """Gather connection informations of given operators.
+
+        Args:
+            operators (SceneItem[]): The SceneItems that searched in for connection.
+
+        Returns:
+            dict: connection informations indexed by src item.
+
+        """
+
+        connections = {}
+
+        def _append(ope, name, item, index):
+            x = {
+                'name': name,
+                'dst': item,
+                'index': index,
+                'ope': ope
+            }
+            connections[item] = x
+
+        for ope in operators:
+
+            for outputName in ope.getOutputNames():
+                operatorOutputs = ope.getOutput(outputName)
+
+                if not isinstance(operatorOutputs, list):
+                    if isinstance(operatorOutputs, SceneItem):
+                        _append(ope, outputName, operatorOutputs, -1)
+
+                else:
+                    for i, operatorOutput in enumerate(operatorOutputs):
+                        if not isinstance(operatorOutput, SceneItem):
+                            continue
+
+                        _append(ope, outputName, operatorOutput, i)
+
+        return connections
+
+    def _gatherConstraintConnections(self, constraints):
+        """Gather connection inforamiotns of given constraints.
+
+        Args:
+            constraints (SceneItem[]): The SceneItems that searched in for connection.
+
+        Returns:
+            (list(dict), dict, dict):
+                connections: connection informations
+                bySrc: dict indexed by connection's src
+                byDst: dict indexed by connection's dst
+
+        """
+
+        connections = []
+        bySrc = {}
+        byDst = {}
+
+        for cns in constraints:
+
+            if not self.isConstrainPartOfComponentIO(cns):
+                continue
+
+            dst = cns.getConstrainee()
+            for src in cns.getConstrainers():
+                x = {
+                    'src': src,
+                    'dst': dst,
+                    'cns': cns,
+                    'betweenComponentIO': self.isConstrainPartOfComponentIO(cns),
+                    'refCount': 1
+                }
+                connections.append(x)
+
+                bySrc[src] = x  # maybe duped key
+                byDst[dst] = x
+
+        return connections, bySrc, byDst
+
+    def _searchConstraintConnectionAscendant(self, connections, dstIndice):
+        """Search and return constraint connections for ascendant while constarint can be passed through.
+
+        Args:
+            connections (dict[]): connection information obtained by _gatherConstraintConnections
+            dstIndice (dict): connection information indexed by src item obtained by _gatherConstraintConnections
+
+        Returns:
+            dict[]: connections stack as list. parent constraint as top, kid constarint as bottom.
+
+        """
+
+        conn = connections[0]
+        src = conn["src"]
+
+        if src in dstIndice:
+            grandConn = dstIndice[src]
+
+            if self.isConnectionCanPassedThrough(grandConn):
+                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+                connections.insert(0, grandConn)
+                return self._searchConstraintConnectionAscendant(connections, dstIndice)
+
+            else:
+                return connections
+
+        else:
+            return connections
+
+    def _searchConstraintConnectionDescendant(self, connections, srcIndice):
+        """Search and return constraint connections for descendant while constarint can be passed through.
+
+        Args:
+            connections (dict[]): connection information obtained by _gatherConstraintConnections
+            srcIndice (dict): connection information indexed by src item obtained by _gatherConstraintConnections
+
+        Returns:
+            dict[]: connections stack as list. parent constraint as top, kid constarint as bottom.
+
+        """
+
+        if type(connections) != list:
+            connections = [connections]
+
+        conn = connections[-1]
+        dst = conn["dst"]
+
+        if dst in srcIndice:
+            grandConn = srcIndice[dst]
+
+            if self.isConnectionCanPassedThrough(grandConn):
+                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+                connections.append(grandConn)
+                return self._searchConstraintConnectionDescendant(connections, srcIndice)
+
+            else:
+                return connections
+
+        else:
+            return connections
+
+    def _getMaintainOffsetInConnections(self, connections):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        for conn in connections:
+            if not self.isConstraintCanPassedThrough(conn["cns"]):
+                return True
+        else:
+            return False
+
+    def isItemComponentIO(self, kSceneItem):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        return (
+            (kSceneItem.getTypeName() == 'ComponentInput')
+            or
+            (kSceneItem.getTypeName() == 'ComponentOutput')
+        )
+
+    def isConstrainBetweenComponentIO(self, kConstraint):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        constrainee = kConstraint.getConstrainee()
+        constrainer = kConstraint.getConstrainers()[0]
+
+        return (
+            (self.isItemComponentIO(constrainee) and self.isItemComponentIO(constrainer))
+        )
+
+    def isConstrainPartOfComponentIO(self, kConstraint):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        constrainee = kConstraint.getConstrainee()
+        constrainers = kConstraint.getConstrainers()
+
+        for c in constrainers:
+            if c.getTypeName() in ['ComponentOutput', 'ComponentInput']:
+                return True
+
+        return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
+
+    def isSrcOrDstPartOfComponentIO(self, src, dst):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        return ((src.getTypeName() in ['ComponentInput', 'ComponentOutput']) or
+                (dst.getTypeName() in ['ComponentInput', 'ComponentOutput']))
+
+    def isConstraintCanPassedThrough(self, kConstraint):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        if not kConstraint:
+            return False
+
+        if kConstraint.getMaintainOffset():
+            if kConstraint.computeOffset() == Xfo():
+                return True
+
+            return False
+
+        return True
+
+    def isConnectionCanPassedThrough(self, connection):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        # cns = connection["cns"]
+        # if not self.isConstraintCanPassedThrough(cns):
+        #     return False
+
+        if not connection['betweenComponentIO']:
+            return False
+
+        return True
