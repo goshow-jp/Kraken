@@ -119,7 +119,7 @@ class Traverser(object):
         self._items = []
 
     def traverse(self, itemCallback=None, discoverCallback=None,
-                 discoveredItemsFirst=True):
+                 discoveredItemsFirst=True, toOptimize=False):
         """Visits all objects within this Traverser based on the root items.
 
         Args:
@@ -141,7 +141,10 @@ class Traverser(object):
                              discoverCallback,
                              discoveredItemsFirst)
 
-        self.optimizeConstraints()
+        if toOptimize:
+            self.optimizeOperatorInput()
+            self.optimizeConstraints()
+
         return self.items
 
     def __collectVisitedItem(self, item, itemCallback):
@@ -183,9 +186,9 @@ class Traverser(object):
             if item.isTypeOf("Attribute") and not self._visited.get(item.getParent().getId(), False):
                 self._visited[item.getId()] = False
                 self.__visitItem(item.getParent(),
-                             itemCallback,
-                             discoverCallback,
-                             discoveredItemsFirst)
+                                 itemCallback,
+                                 discoverCallback,
+                                 discoveredItemsFirst)
                 return False
 
             self.__visitItem(item.getParent(),
@@ -284,14 +287,97 @@ class Traverser(object):
     # ================
     # Optimaze Methods
     # ================
-    def optimizeConstraints(self):
+    def optimizeOperatorInput(self):
+        """Optimize self.items on operator inputs.
+
+            Shortcut redudant constraint that can be passed through.
+
+        """
 
         constraints = self.getItemsOfType('Constraint')
-        connections, srcIndice, dstIndice = self._gatherConnections(constraints)
+        operators = self.getItemsOfType('KLOperator')
+        operators.extend(self.getItemsOfType('CanvasOperator'))
+
+        cnsConnections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+        opeOutputIndice = self._gatherOperatorConnections(operators)
+
+        def getNewSrc(ope, portItem):
+
+            if not self.isItemComponentIO(portItem):
+                return portItem
+
+            if portItem in dstIndice:
+                anscestor = self._searchConstraintConnectionAscendant([dstIndice[portItem]], dstIndice)
+                return anscestor[0]['src']
+            elif portItem in opeOutputIndice:
+                # TODO:
+                return portItem
+            else:
+                return portItem
+
+        for ope in operators:
+            for portName, portItem in ope.inputs.iteritems():
+                if type(portItem) == list:  # array port
+                    news = [getNewSrc(ope, ele) for ele in portItem]
+                else:
+                    news = getNewSrc(ope, portItem)
+
+                ope.inputs[portName] = news
+
+    def getOperatorsCanBeDirectConnect(self):
+        """Retruns operator inforamions that can be direct connect with another operator.
+
+        Returns:
+            list[dict]: operator inforamtion that input can be direct connect with its src operator.
+                    information contain as dict.
+
+        """
+
+        operators = self.getItemsOfType('KLOperator')
+        operators.extend(self.getItemsOfType('CanvasOperator'))
+        opeOutputIndice = self._gatherOperatorConnections(operators)
+        result = []
+
+        def _append(ope, portItem, portName, index):
+            if not self.isItemComponentIO(portItem):
+                return
+
+            if portItem in opeOutputIndice:
+                conn = opeOutputIndice[portItem]
+                result.append(
+                    {
+                        'srcOperator': conn['ope'],
+                        'dstOperator': ope,
+                        'srcPortName': conn['name'],
+                        'dstPortName': portName,
+                        'srcIndex': conn['index'],
+                        'dstIndex': index
+                    }
+                )
+
+        for ope in operators:
+            for portName, portItem in ope.inputs.iteritems():
+                if type(portItem) == list:  # array port
+                    for i, ele in enumerate(portItem):
+                        _append(ope, ele, portName, i)
+                else:
+                    _append(ope, portItem, portName, -1)
+
+        return result
+
+    def optimizeConstraints(self):
+        """Optimize self.items on Constraints.
+
+            Remove redudant constraint that can be passed through with another item.
+
+        """
+
+        constraints = self.getItemsOfType('Constraint')
+        connections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
 
         for conn in connections:
 
-            new = self._searchConstraintConnectionAscendant(conn, dstIndice)
+            new = self._searchConstraintConnectionAscendant([conn], dstIndice)
             new = self._searchConstraintConnectionDescendant(new, srcIndice)
 
             # connection does not terminal
@@ -323,7 +409,60 @@ class Traverser(object):
                 except ValueError:
                     pass
 
-    def _gatherConnections(self, constraints):
+    def _gatherOperatorConnections(self, operators):
+        """Gather connection informations of given operators.
+
+        Args:
+            operators (SceneItem[]): The SceneItems that searched in for connection.
+
+        Returns:
+            dict: connection informations indexed by src item.
+
+        """
+
+        connections = {}
+
+        def _append(ope, name, item, index):
+            x = {
+                'name': name,
+                'dst': item,
+                'index': index,
+                'ope': ope
+            }
+            connections[item] = x
+
+        for ope in operators:
+
+            for outputName in ope.getOutputNames():
+                operatorOutputs = ope.getOutput(outputName)
+
+                if not isinstance(operatorOutputs, list):
+                    if isinstance(operatorOutputs, SceneItem):
+                        _append(ope, outputName, operatorOutputs, -1)
+
+                else:
+                    for i, operatorOutput in enumerate(operatorOutputs):
+                        if not isinstance(operatorOutput, SceneItem):
+                            continue
+
+                        _append(ope, outputName, operatorOutput, i)
+
+        return connections
+
+    def _gatherConstraintConnections(self, constraints):
+        """Gather connection inforamiotns of given constraints.
+
+        Args:
+            constraints (SceneItem[]): The SceneItems that searched in for connection.
+
+        Returns:
+            (list(dict), dict, dict):
+                connections: connection informations
+                bySrc: dict indexed by connection's src
+                byDst: dict indexed by connection's dst
+
+        """
+
         connections = []
         bySrc = {}
         byDst = {}
@@ -350,8 +489,16 @@ class Traverser(object):
         return connections, bySrc, byDst
 
     def _searchConstraintConnectionAscendant(self, connections, dstIndice):
-        if type(connections) != list:
-            connections = [connections]
+        """Search and return constraint connections for ascendant while constarint can be passed through.
+
+        Args:
+            connections (dict[]): connection information obtained by _gatherConstraintConnections
+            dstIndice (dict): connection information indexed by src item obtained by _gatherConstraintConnections
+
+        Returns:
+            dict[]: connections stack as list. parent constraint as top, kid constarint as bottom.
+
+        """
 
         conn = connections[0]
         src = conn["src"]
@@ -371,6 +518,17 @@ class Traverser(object):
             return connections
 
     def _searchConstraintConnectionDescendant(self, connections, srcIndice):
+        """Search and return constraint connections for descendant while constarint can be passed through.
+
+        Args:
+            connections (dict[]): connection information obtained by _gatherConstraintConnections
+            srcIndice (dict): connection information indexed by src item obtained by _gatherConstraintConnections
+
+        Returns:
+            dict[]: connections stack as list. parent constraint as top, kid constarint as bottom.
+
+        """
+
         if type(connections) != list:
             connections = [connections]
 
@@ -392,6 +550,16 @@ class Traverser(object):
             return connections
 
     def _getMaintainOffsetInConnections(self, connections):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
         for conn in connections:
             if not self.isConstraintCanPassedThrough(conn["cns"]):
                 return True
@@ -399,6 +567,16 @@ class Traverser(object):
             return False
 
     def isItemComponentIO(self, kSceneItem):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
         return (
             (kSceneItem.getTypeName() == 'ComponentInput')
             or
@@ -406,6 +584,16 @@ class Traverser(object):
         )
 
     def isConstrainBetweenComponentIO(self, kConstraint):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
         constrainee = kConstraint.getConstrainee()
         constrainer = kConstraint.getConstrainers()[0]
 
@@ -414,6 +602,16 @@ class Traverser(object):
         )
 
     def isConstrainPartOfComponentIO(self, kConstraint):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
         constrainee = kConstraint.getConstrainee()
         constrainers = kConstraint.getConstrainers()
 
@@ -424,10 +622,30 @@ class Traverser(object):
         return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
 
     def isSrcOrDstPartOfComponentIO(self, src, dst):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
         return ((src.getTypeName() in ['ComponentInput', 'ComponentOutput']) or
                 (dst.getTypeName() in ['ComponentInput', 'ComponentOutput']))
 
     def isConstraintCanPassedThrough(self, kConstraint):
+        """Doc String.
+
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
         if not kConstraint:
             return False
 
@@ -440,9 +658,17 @@ class Traverser(object):
         return True
 
     def isConnectionCanPassedThrough(self, connection):
-        ''' connection: {'src', 'dst', 'cns', 'betweenComponentIO': boolean} '''
-        cns = connection["cns"]
+        """Doc String.
 
+        Args:
+            item (Type): information.
+
+        Returns:
+            Type: information.
+
+        """
+
+        # cns = connection["cns"]
         # if not self.isConstraintCanPassedThrough(cns):
         #     return False
 
