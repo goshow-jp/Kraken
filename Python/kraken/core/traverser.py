@@ -142,8 +142,16 @@ class Traverser(object):
                              discoveredItemsFirst)
 
         if toOptimize:
-            self.optimizeOperatorInput()
-            self.optimizeConstraints()
+            connections, srcIndice, dstIndice = self.optimizeOperatorInput()
+            self.optimizeConstraints(connections, srcIndice, dstIndice)
+
+            for conn in connections:
+                if conn["refCount"] != "never" and conn["refCount"] < 1:
+                    try:
+                        print "remove: ", conn["cns"].getBuildName()
+                        self.items.remove(conn["cns"])
+                    except ValueError:
+                        pass
 
         return self.items
 
@@ -287,7 +295,7 @@ class Traverser(object):
     # ================
     # Optimaze Methods
     # ================
-    def optimizeOperatorInput(self):
+    def optimizeOperatorInput(self, cnsConnections=None, srcIndice=None, dstIndice=None):
         """Optimize self.items on operator inputs.
 
             Shortcut redudant constraint that can be passed through.
@@ -298,7 +306,8 @@ class Traverser(object):
         operators = self.getItemsOfType('KLOperator')
         operators.extend(self.getItemsOfType('CanvasOperator'))
 
-        cnsConnections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+        if cnsConnections is None and srcIndice is None and dstIndice is None:
+            cnsConnections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
         opeOutputIndice = self._gatherOperatorConnections(operators)
 
         def getNewSrc(ope, portItem):
@@ -307,13 +316,33 @@ class Traverser(object):
                 return portItem
 
             if portItem in dstIndice:
-                anscestor = self._searchConstraintConnectionAscendant([dstIndice[portItem]], dstIndice)
+                anscestor = self._searchConstraintConnectionAscendant([dstIndice[portItem]], dstIndice, includeOffset=False)
+                markConstraintAsNeverRemove(anscestor[0]['src'])
                 return anscestor[0]['src']
             elif portItem in opeOutputIndice:
                 # TODO:
+                markConstraintAsNeverRemove(portItem)
                 return portItem
             else:
+                markConstraintAsNeverRemove(portItem)
                 return portItem
+
+        cacheMarkConstraintAsNeverRemove = []
+
+        def markConstraintAsNeverRemove(src):
+            if src in cacheMarkConstraintAsNeverRemove:
+                return
+
+            if src not in dstIndice:
+                return
+
+            start = dstIndice[src]
+            needed = self._searchConstraintConnectionAscendant([start], dstIndice, includeOffset=True)
+
+            for c in needed:
+                c["refCount"] = "never"
+
+            cacheMarkConstraintAsNeverRemove.append(src)
 
         for ope in operators:
             for portName, portItem in ope.inputs.iteritems():
@@ -323,6 +352,8 @@ class Traverser(object):
                     news = getNewSrc(ope, portItem)
 
                 ope.inputs[portName] = news
+
+        return cnsConnections, srcIndice, dstIndice
 
     def getOperatorsCanBeDirectConnect(self):
         """Retruns operator inforamions that can be direct connect with another operator.
@@ -365,7 +396,7 @@ class Traverser(object):
 
         return result
 
-    def optimizeConstraints(self):
+    def optimizeConstraints(self, connections=None, srcIndice=None, dstIndice=None):
         """Optimize self.items on Constraints.
 
             Remove redudant constraint that can be passed through with another item.
@@ -373,7 +404,9 @@ class Traverser(object):
         """
 
         constraints = self.getItemsOfType('Constraint')
-        connections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+
+        if connections is None and srcIndice is None and dstIndice is None:
+            connections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
 
         for conn in connections:
 
@@ -402,12 +435,7 @@ class Traverser(object):
             # else:
             #     print "already in constrainers"
 
-        for conn in connections:
-            if conn["refCount"] != "never" and conn["refCount"] < 1:
-                try:
-                    self.items.remove(conn["cns"])
-                except ValueError:
-                    pass
+        return connections, srcIndice, dstIndice
 
     def _gatherOperatorConnections(self, operators):
         """Gather connection informations of given operators.
@@ -488,7 +516,7 @@ class Traverser(object):
 
         return connections, bySrc, byDst
 
-    def _searchConstraintConnectionAscendant(self, connections, dstIndice):
+    def _searchConstraintConnectionAscendant(self, connections, dstIndice, includeOffset=True):
         """Search and return constraint connections for ascendant while constarint can be passed through.
 
         Args:
@@ -506,10 +534,10 @@ class Traverser(object):
         if src in dstIndice:
             grandConn = dstIndice[src]
 
-            if self.isConnectionCanPassedThrough(grandConn):
+            if self.isConnectionCanPassedThrough(grandConn, includeOffset):
                 conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
                 connections.insert(0, grandConn)
-                return self._searchConstraintConnectionAscendant(connections, dstIndice)
+                return self._searchConstraintConnectionAscendant(connections, dstIndice, includeOffset)
 
             else:
                 return connections
@@ -517,7 +545,7 @@ class Traverser(object):
         else:
             return connections
 
-    def _searchConstraintConnectionDescendant(self, connections, srcIndice):
+    def _searchConstraintConnectionDescendant(self, connections, srcIndice, includeOffset=True):
         """Search and return constraint connections for descendant while constarint can be passed through.
 
         Args:
@@ -538,7 +566,7 @@ class Traverser(object):
         if dst in srcIndice:
             grandConn = srcIndice[dst]
 
-            if self.isConnectionCanPassedThrough(grandConn):
+            if self.isConnectionCanPassedThrough(grandConn, includeOffset):
                 conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
                 connections.append(grandConn)
                 return self._searchConstraintConnectionDescendant(connections, srcIndice)
@@ -657,7 +685,7 @@ class Traverser(object):
 
         return True
 
-    def isConnectionCanPassedThrough(self, connection):
+    def isConnectionCanPassedThrough(self, connection, includeOffset=True):
         """Doc String.
 
         Args:
@@ -668,9 +696,10 @@ class Traverser(object):
 
         """
 
-        # cns = connection["cns"]
-        # if not self.isConstraintCanPassedThrough(cns):
-        #     return False
+        if not includeOffset:
+            cns = connection["cns"]
+            if not self.isConstraintCanPassedThrough(cns):
+                return False
 
         if not connection['betweenComponentIO']:
             return False
