@@ -1439,6 +1439,7 @@ class Builder(Builder):
         traverser.traverse(toOptimize=True)
 
         self.optimizeOperatorInput(traverser)
+        self.optimizeRedudantCmpIn(traverser)
         self.optimizeRedudantCmpOut(traverser)
 
     def optimizeOperatorInput(self, traverser):
@@ -1466,14 +1467,57 @@ class Builder(Builder):
             except RuntimeError as e:
                 logger.error(e)
 
+    def optimizeRedudantCmpIn(self, traverser):
+
+        def _notConnectedAsAnyDestination(inputName):
+            path = "{}".format(inputName)
+            con = cmds.listConnections(path, source=False, destination=True)
+            if con is None:
+                return True
+
+            count = 0
+            for c in set(con):
+                kidCon = cmds.listConnections(c, source=False, destination=True)
+
+                if kidCon is None:
+                    continue
+
+                for kc in set(kidCon):
+                    if inputName not in kc and c != kc:
+                        count += 1
+
+            return count == 0
+
+        inputs = traverser.getItemsOfType('ComponentInput')
+
+        for input in inputs:
+            dccInputObject = self.getDCCSceneItem(input)
+            if not dccInputObject:
+                continue
+
+            if _notConnectedAsAnyDestination(dccInputObject.name()):
+                pm.delete(dccInputObject)
+
     def optimizeRedudantCmpOut(self, traverser):
 
         def _notConnectedAsAnySource(outputName):
             path = "{}".format(outputName)
-            con = cmds.listConnections(path, source=True)
+            con = cmds.listConnections(path, source=False, destination=True)
             if con is None:
                 return True
-            return len(con) == 0
+
+            count = 0
+            for c in set(con):
+                kidCon = cmds.listConnections(c, source=False, destination=True)
+
+                if kidCon is None:
+                    continue
+
+                for kc in set(kidCon):
+                    if outputName not in kc and c != kc:
+                        count += 1
+
+            return count == 0
 
         outputs = traverser.getItemsOfType('ComponentOutput')
 
