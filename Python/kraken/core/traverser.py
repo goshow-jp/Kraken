@@ -142,8 +142,15 @@ class Traverser(object):
                              discoveredItemsFirst)
 
         if toOptimize:
-            self.optimizeOperatorInput()
-            self.optimizeConstraints()
+            connections = self.optimizeOperatorInput()
+            self.optimizeConstraints(connections)
+
+            for conn in connections:
+                if conn.canRemove():
+                    try:
+                        self.items.remove(conn["cns"])
+                    except ValueError:
+                        pass
 
         return self.items
 
@@ -284,13 +291,19 @@ class Traverser(object):
 
         return result
 
-    # ================
+    # =================
     # Optimaze Methods
-    # ================
-    def optimizeOperatorInput(self):
+    # =================
+    def optimizeOperatorInput(self, cnsConnections=None):
         """Optimize self.items on operator inputs.
 
             Shortcut redudant constraint that can be passed through.
+
+        Args:
+            cnsConnections (ConnectionContainer): constraint connections.
+
+        Returns:
+            ConnectionContainer: result constraint connections.
 
         """
 
@@ -298,8 +311,11 @@ class Traverser(object):
         operators = self.getItemsOfType('KLOperator')
         operators.extend(self.getItemsOfType('CanvasOperator'))
 
-        cnsConnections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+        if cnsConnections is None:
+            cnsConnections = self._gatherConstraintConnections(constraints)
         opeOutputIndice = self._gatherOperatorConnections(operators)
+
+        dstIndice = cnsConnections.indexedByDst()
 
         def getNewSrc(ope, portItem):
 
@@ -307,13 +323,35 @@ class Traverser(object):
                 return portItem
 
             if portItem in dstIndice:
-                anscestor = self._searchConstraintConnectionAscendant([dstIndice[portItem]], dstIndice)
+                anscestor = self._searchConstraintConnectionAscendant(
+                    [dstIndice[portItem]], dstIndice, includeOffset=False)
+                markConstraintAsNeverRemove(anscestor[0]['src'])
                 return anscestor[0]['src']
             elif portItem in opeOutputIndice:
-                # TODO:
+                # This should be process when post build
+                markConstraintAsNeverRemove(portItem)
                 return portItem
             else:
+                markConstraintAsNeverRemove(portItem)
                 return portItem
+
+        cacheMarkConstraintAsNeverRemove = []
+
+        def markConstraintAsNeverRemove(src):
+            if src in cacheMarkConstraintAsNeverRemove:
+                return
+
+            if src not in dstIndice:
+                return
+
+            start = dstIndice[src]
+            needed = self._searchConstraintConnectionAscendant(
+                [start], dstIndice, includeOffset=True)
+
+            for c in needed:
+                c.incrementRefCount()
+
+            cacheMarkConstraintAsNeverRemove.append(src)
 
         for ope in operators:
             for portName, portItem in ope.inputs.iteritems():
@@ -324,8 +362,12 @@ class Traverser(object):
 
                 ope.inputs[portName] = news
 
+        return cnsConnections
+
     def getOperatorsCanBeDirectConnect(self):
         """Retruns operator inforamions that can be direct connect with another operator.
+
+            This method must be called by builder post build process.
 
         Returns:
             list[dict]: operator inforamtion that input can be direct connect with its src operator.
@@ -335,7 +377,8 @@ class Traverser(object):
 
         operators = self.getItemsOfType('KLOperator')
         operators.extend(self.getItemsOfType('CanvasOperator'))
-        opeOutputIndice = self._gatherOperatorConnections(operators)
+        operatorConnections = self._gatherOperatorConnections(operators)
+        opeOutputIndice = operatorConnections.indexedBySrc()
         result = []
 
         def _append(ope, portItem, portName, index):
@@ -346,9 +389,9 @@ class Traverser(object):
                 conn = opeOutputIndice[portItem]
                 result.append(
                     {
-                        'srcOperator': conn['ope'],
+                        'srcOperator': conn['src'],
                         'dstOperator': ope,
-                        'srcPortName': conn['name'],
+                        'srcPortName': conn['srcPortName'],
                         'dstPortName': portName,
                         'srcIndex': conn['index'],
                         'dstIndex': index
@@ -365,20 +408,21 @@ class Traverser(object):
 
         return result
 
-    def optimizeConstraints(self):
+    def optimizeConstraints(self, connections=None):
         """Optimize self.items on Constraints.
 
             Remove redudant constraint that can be passed through with another item.
 
         """
 
-        constraints = self.getItemsOfType('Constraint')
-        connections, srcIndice, dstIndice = self._gatherConstraintConnections(constraints)
+        if connections is None:
+            constraints = self.getItemsOfType('Constraint')
+            connections = self._gatherConstraintConnections(constraints)
 
         for conn in connections:
 
-            new = self._searchConstraintConnectionAscendant([conn], dstIndice)
-            new = self._searchConstraintConnectionDescendant(new, srcIndice)
+            new = self._searchConstraintConnectionAscendant([conn], connections.indexedByDst())
+            new = self._searchConstraintConnectionDescendant(new, connections.indexedBySrc())
 
             # connection does not terminal
             if new[-1] != conn:
@@ -398,16 +442,11 @@ class Traverser(object):
                 newDstConn["cns"].setConstrainer(newSrcConn["src"])
                 canPassed = self._getMaintainOffsetInConnections(new)
                 newDstConn["cns"].setMaintainOffset(canPassed)
-                newDstConn["refCount"] = "never"
+                newDstConn.incrementRefCount()
             # else:
             #     print "already in constrainers"
 
-        for conn in connections:
-            if conn["refCount"] != "never" and conn["refCount"] < 1:
-                try:
-                    self.items.remove(conn["cns"])
-                except ValueError:
-                    pass
+        return connections
 
     def _gatherOperatorConnections(self, operators):
         """Gather connection informations of given operators.
@@ -416,20 +455,15 @@ class Traverser(object):
             operators (SceneItem[]): The SceneItems that searched in for connection.
 
         Returns:
-            dict: connection informations indexed by src item.
+            ConnectionContainer: operator connection informations indexed by src(=operator) item.
 
         """
 
-        connections = {}
+        connections = ConnectionContainer()
 
         def _append(ope, name, item, index):
-            x = {
-                'name': name,
-                'dst': item,
-                'index': index,
-                'ope': ope
-            }
-            connections[item] = x
+            conn = OperatorConnection(ope, name, item, index)
+            connections.append(conn)
 
         for ope in operators:
 
@@ -456,16 +490,11 @@ class Traverser(object):
             constraints (SceneItem[]): The SceneItems that searched in for connection.
 
         Returns:
-            (list(dict), dict, dict):
-                connections: connection informations
-                bySrc: dict indexed by connection's src
-                byDst: dict indexed by connection's dst
+            ConnectionContainer: connection informations
 
         """
 
-        connections = []
-        bySrc = {}
-        byDst = {}
+        connections = ConnectionContainer()
 
         for cns in constraints:
 
@@ -474,21 +503,13 @@ class Traverser(object):
 
             dst = cns.getConstrainee()
             for src in cns.getConstrainers():
-                x = {
-                    'src': src,
-                    'dst': dst,
-                    'cns': cns,
-                    'betweenComponentIO': self.isConstrainPartOfComponentIO(cns),
-                    'refCount': 1
-                }
-                connections.append(x)
 
-                bySrc[src] = x  # maybe duped key
-                byDst[dst] = x
+                conn = ConstraintConnection(src, dst, cns)
+                connections.append(conn)
 
-        return connections, bySrc, byDst
+        return connections
 
-    def _searchConstraintConnectionAscendant(self, connections, dstIndice):
+    def _searchConstraintConnectionAscendant(self, connections, dstIndice, includeOffset=True):
         """Search and return constraint connections for ascendant while constarint can be passed through.
 
         Args:
@@ -506,10 +527,10 @@ class Traverser(object):
         if src in dstIndice:
             grandConn = dstIndice[src]
 
-            if self.isConnectionCanPassedThrough(grandConn):
-                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+            if self.isConnectionCanPassedThrough(grandConn, includeOffset):
+                conn.decrementRefCount()
                 connections.insert(0, grandConn)
-                return self._searchConstraintConnectionAscendant(connections, dstIndice)
+                return self._searchConstraintConnectionAscendant(connections, dstIndice, includeOffset)
 
             else:
                 return connections
@@ -517,7 +538,7 @@ class Traverser(object):
         else:
             return connections
 
-    def _searchConstraintConnectionDescendant(self, connections, srcIndice):
+    def _searchConstraintConnectionDescendant(self, connections, srcIndice, includeOffset=True):
         """Search and return constraint connections for descendant while constarint can be passed through.
 
         Args:
@@ -538,8 +559,8 @@ class Traverser(object):
         if dst in srcIndice:
             grandConn = srcIndice[dst]
 
-            if self.isConnectionCanPassedThrough(grandConn):
-                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+            if self.isConnectionCanPassedThrough(grandConn, includeOffset):
+                conn.decrementRefCount()
                 connections.append(grandConn)
                 return self._searchConstraintConnectionDescendant(connections, srcIndice)
 
@@ -566,7 +587,8 @@ class Traverser(object):
         else:
             return False
 
-    def isItemComponentIO(self, kSceneItem):
+    @staticmethod
+    def isItemComponentIO(kSceneItem):
         """Doc String.
 
         Args:
@@ -583,7 +605,8 @@ class Traverser(object):
             (kSceneItem.getTypeName() == 'ComponentOutput')
         )
 
-    def isConstrainBetweenComponentIO(self, kConstraint):
+    @staticmethod
+    def isConstrainBetweenComponentIO(kConstraint):
         """Doc String.
 
         Args:
@@ -598,10 +621,11 @@ class Traverser(object):
         constrainer = kConstraint.getConstrainers()[0]
 
         return (
-            (self.isItemComponentIO(constrainee) and self.isItemComponentIO(constrainer))
+            (Traverser.isItemComponentIO(constrainee) and Traverser.isItemComponentIO(constrainer))
         )
 
-    def isConstrainPartOfComponentIO(self, kConstraint):
+    @staticmethod
+    def isConstrainPartOfComponentIO(kConstraint):
         """Doc String.
 
         Args:
@@ -621,7 +645,8 @@ class Traverser(object):
 
         return constrainee.getTypeName() in ['ComponentOutput', 'ComponentInput']
 
-    def isSrcOrDstPartOfComponentIO(self, src, dst):
+    @staticmethod
+    def isSrcOrDstPartOfComponentIO(src, dst):
         """Doc String.
 
         Args:
@@ -635,7 +660,8 @@ class Traverser(object):
         return ((src.getTypeName() in ['ComponentInput', 'ComponentOutput']) or
                 (dst.getTypeName() in ['ComponentInput', 'ComponentOutput']))
 
-    def isConstraintCanPassedThrough(self, kConstraint):
+    @staticmethod
+    def isConstraintCanPassedThrough(kConstraint):
         """Doc String.
 
         Args:
@@ -657,7 +683,8 @@ class Traverser(object):
 
         return True
 
-    def isConnectionCanPassedThrough(self, connection):
+    @staticmethod
+    def isConnectionCanPassedThrough(connection, includeOffset=True):
         """Doc String.
 
         Args:
@@ -668,11 +695,83 @@ class Traverser(object):
 
         """
 
-        # cns = connection["cns"]
-        # if not self.isConstraintCanPassedThrough(cns):
-        #     return False
+        if type(connection) is not ConstraintConnection:
+            return False
+
+        if not includeOffset:
+            cns = connection["cns"]
+            if not Traverser.isConstraintCanPassedThrough(cns):
+                return False
 
         if not connection['betweenComponentIO']:
             return False
 
         return True
+
+
+# ==========================================================
+# Constraint connection Class for optimization internal use
+# ==========================================================
+class ConstraintConnection(dict):
+    """Represent costraint connection informations.
+
+    This stores its src item, dst item, constraints item as SceneItem,
+    analyze result of connection is this part of component IO, and reference count
+    to this connection on optimize process.
+
+    """
+
+    def __init__(self, src, dst, cns):
+        super(ConstraintConnection, self).__init__()
+        self['src'] = src
+        self['dst'] = dst
+        self['cns'] = cns
+        self['betweenComponentIO'] = Traverser.isConstrainPartOfComponentIO(cns)
+        self['refCount'] = 1
+
+    def decrementRefCount(self):
+        if self["refCount"] != "protect":
+            self["refCount"] -= 1
+
+    def incrementRefCount(self):
+        self["refCount"] = "protect"
+
+    def canRemove(self):
+        return self["refCount"] != "protect" and self["refCount"] < 1
+
+
+class OperatorConnection(dict):
+    """Represent operator connection informations.
+
+    This stores its src operator, src operator's port name (output port),
+    dst component output item, and its port index. index indicate number in port,
+    if output port is not array, then index must be -1.
+
+    """
+
+    def __init__(self, src, srcPortName, dst, index):
+        super(OperatorConnection, self).__init__()
+        self['src'] = src  # means src operator
+        self['srcPortName'] = srcPortName
+        self['dst'] = dst
+        self['index'] = index
+
+
+class ConnectionContainer(list):
+
+    def __init__(self):
+        super(ConnectionContainer, self).__init__()
+        self.bySrc = {}
+        self.byDst = {}
+
+    def append(self, connectionElement):
+        super(ConnectionContainer, self).append(connectionElement)
+
+        self.bySrc[connectionElement['src']] = connectionElement  # maybe duped key
+        self.byDst[connectionElement['dst']] = connectionElement
+
+    def indexedBySrc(self):
+        return self.bySrc
+
+    def indexedByDst(self):
+        return self.byDst
