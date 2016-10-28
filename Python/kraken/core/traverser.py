@@ -146,7 +146,7 @@ class Traverser(object):
             self.optimizeConstraints(connections)
 
             for conn in connections:
-                if conn["refCount"] != "never" and conn["refCount"] < 1:
+                if conn.canRemove():
                     try:
                         self.items.remove(conn["cns"])
                     except ValueError:
@@ -352,7 +352,7 @@ class Traverser(object):
                 [start], dstIndice, includeOffset=True)
 
             for c in needed:
-                c["refCount"] = "never"
+                c.incrementRefCount()
 
             cacheMarkConstraintAsNeverRemove.append(src)
 
@@ -446,7 +446,7 @@ class Traverser(object):
                 newDstConn["cns"].setConstrainer(newSrcConn["src"])
                 canPassed = self._getMaintainOffsetInConnections(new)
                 newDstConn["cns"].setMaintainOffset(canPassed)
-                newDstConn["refCount"] = "never"
+                newDstConn.incrementRefCount()
             # else:
             #     print "already in constrainers"
 
@@ -532,7 +532,7 @@ class Traverser(object):
             grandConn = dstIndice[src]
 
             if self.isConnectionCanPassedThrough(grandConn, includeOffset):
-                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+                conn.decrementRefCount()
                 connections.insert(0, grandConn)
                 return self._searchConstraintConnectionAscendant(connections, dstIndice, includeOffset)
 
@@ -564,7 +564,7 @@ class Traverser(object):
             grandConn = srcIndice[dst]
 
             if self.isConnectionCanPassedThrough(grandConn, includeOffset):
-                conn["refCount"] = (conn["refCount"] - 1) if (conn["refCount"] != "never") else "never"
+                conn.decrementRefCount()
                 connections.append(grandConn)
                 return self._searchConstraintConnectionDescendant(connections, srcIndice)
 
@@ -725,6 +725,19 @@ class ConstraintConnection(dict):
         self['cns'] = cns
         self['betweenComponentIO'] = Traverser.isConstrainPartOfComponentIO(cns)
         self['refCount'] = 1
+
+    def decrementRefCount(self):
+        if self["refCount"] != "protect":
+            try:
+                self["refCount"] -= 1
+            except TypeError:
+                print self["refCount"]
+
+    def incrementRefCount(self):
+        self["refCount"] = "protect"
+
+    def canRemove(self):
+        return self["refCount"] != "protect" and self["refCount"] < 1
 
 
 class OperatorConnection(dict):
