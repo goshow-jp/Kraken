@@ -303,10 +303,7 @@ class Traverser(object):
             cnsConnections (ConnectionContainer): constraint connections.
 
         Returns:
-            list(dict), dict, dict: information.
-            dict: dict indexed by connection's src
-            dict: dict indexed by connection's dst
-
+            ConnectionContainer: result constraint connections.
 
         """
 
@@ -331,7 +328,7 @@ class Traverser(object):
                 markConstraintAsNeverRemove(anscestor[0]['src'])
                 return anscestor[0]['src']
             elif portItem in opeOutputIndice:
-                # TODO:
+                # This should be process when post build
                 markConstraintAsNeverRemove(portItem)
                 return portItem
             else:
@@ -418,9 +415,8 @@ class Traverser(object):
 
         """
 
-        constraints = self.getItemsOfType('Constraint')
-
         if connections is None:
+            constraints = self.getItemsOfType('Constraint')
             connections = self._gatherConstraintConnections(constraints)
 
         for conn in connections:
@@ -717,6 +713,13 @@ class Traverser(object):
 # Constraint connection Class for optimization internal use
 # ==========================================================
 class ConstraintConnection(dict):
+    """Represent costraint connection informations.
+
+    This stores its src item, dst item, constraints item as SceneItem,
+    analyze result of connection is this part of component IO, and reference count
+    to this connection on optimize process.
+
+    """
 
     def __init__(self, src, dst, cns):
         super(ConstraintConnection, self).__init__()
@@ -728,10 +731,7 @@ class ConstraintConnection(dict):
 
     def decrementRefCount(self):
         if self["refCount"] != "protect":
-            try:
-                self["refCount"] -= 1
-            except TypeError:
-                print self["refCount"]
+            self["refCount"] -= 1
 
     def incrementRefCount(self):
         self["refCount"] = "protect"
@@ -741,6 +741,13 @@ class ConstraintConnection(dict):
 
 
 class OperatorConnection(dict):
+    """Represent operator connection informations.
+
+    This stores its src operator, src operator's port name (output port),
+    dst component output item, and its port index. index indicate number in port,
+    if output port is not array, then index must be -1.
+
+    """
 
     def __init__(self, src, srcPortName, dst, index):
         super(OperatorConnection, self).__init__()
@@ -748,8 +755,6 @@ class OperatorConnection(dict):
         self['srcPortName'] = srcPortName
         self['dst'] = dst
         self['index'] = index
-        self['operator'] = src
-        # self['refCount'] = 1
 
 
 class ConnectionContainer(list):
