@@ -213,7 +213,7 @@ function TwoBoneDoubleMidJointIKGuideSolver.solve!(
 
   Vec3 midPosition = calculateIntersectionFrom4Points(p1Start, p2Start, p1End, p2End);
 
-  midPosition = (midPosition * root).tr;
+  midPosition = root * midPosition;
 
   debugPositions1[0] = root.translation();
   debugPositions1[1] = mid1.translation();
