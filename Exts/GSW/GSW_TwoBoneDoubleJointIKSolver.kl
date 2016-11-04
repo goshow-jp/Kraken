@@ -1,0 +1,352 @@
+require Math;
+require InlineDrawing;
+require Kraken;
+
+object TwoBoneDoubleMidJointIKSolver : KrakenSolver {
+  Xfo initPose[];
+};
+
+/// Default Constructor
+/// \dfgPresetTitle TwoBoneDoubleMidJointIKSolver_Constructor
+/// \dfgPresetColor Color(49, 60, 61)
+/// \dfgPresetHeaderColor Color(42, 94, 102)
+/// \dfgPresetTextColor Color(168, 229, 240)
+/// \dfgPresetFolder Solvers\TwoBoneDoubleMidJointIKSolver
+function TwoBoneDoubleMidJointIKSolver()
+{
+  this.defaultValues["rightSide"] = false;
+  this.defaultValues["ikblend"] = 0.0;
+  this.defaultValues["root"] = Mat44();
+  this.defaultValues["bone0FK"] = Mat44();
+  this.defaultValues["bone1FK"] = Mat44();
+  this.defaultValues["ikHandle"] = Mat44();
+  this.defaultValues["upV"] = Mat44();
+  this.defaultValues["bone0Len"] = 654.321;
+  this.defaultValues["bone1Len"] = 1.0;
+}
+
+/// \dfgPresetTitle TwoBoneDoubleMidJointIKSolver_Constructor_Init
+/// \dfgPresetColor Color(49, 60, 61)
+/// \dfgPresetHeaderColor Color(42, 94, 102)
+/// \dfgPresetTextColor Color(168, 229, 240)
+/// \dfgPresetFolder Solvers\TwoBoneDoubleMidJointIKSolver
+function TwoBoneDoubleMidJointIKSolver(
+  Xfo initPose[])
+{
+  TwoBoneDoubleMidJointIKSolver();
+  this.initPose = initPose;
+}
+
+
+// Return Arguments for Kraken
+/// \dfgPresetOmit
+function KrakenSolverArg[] TwoBoneDoubleMidJointIKSolver.getArguments(){
+  KrakenSolverArg args[] = this.parent.getArguments();
+  args.push(KrakenSolverArg('rightSide', 'In', 'Boolean'));
+
+  args.push(KrakenSolverArg('ikblend', 'In', 'Scalar'));
+
+  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('bone0FK', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('bone1FK', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('ikHandle', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('upV', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('bone0Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('bone1Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('bone0Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('bone1Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('bone2Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('midJointOut', 'Out', 'Mat44'));
+  return args;
+}
+
+
+// Solve
+/// \dfgPresetTitle TwoBoneDoubleMidJointIKSolver_Solve
+/// \dfgPresetColor Color(49, 60, 61)
+/// \dfgPresetHeaderColor Color(42, 94, 102)
+/// \dfgPresetTextColor Color(168, 229, 240)
+/// \dfgPresetFolder Solvers\TwoBoneDoubleMidJointIKSolver
+/// \dfgPresetRange rigScale (0.1, 1000.0)
+/// \dfgPresetRange ikblend (0.0, 1.0)
+function TwoBoneDoubleMidJointIKSolver.solve!
+(
+  Boolean drawDebug,
+  Scalar rigScale,
+  Boolean rightSide,
+
+  Scalar ikblend,
+
+  Mat44 root,
+  Mat44 bone0FK,
+  Mat44 bone1FK,
+  Mat44 ikHandle,
+  Mat44 upV,
+
+  Scalar bone0Len,
+  Scalar bone1Len,
+  io Mat44 bone0Out,
+  io Mat44 bone1Out,
+  io Mat44 bone2Out,
+  io Mat44 midJointOut
+) {
+  Xfo bone0FkXfo = Xfo(bone0FK);
+  Xfo bone1FkXfo = Xfo(bone1FK);
+  Xfo bone0Xfo = bone0FkXfo;
+  Xfo bone1Xfo = bone1FkXfo;
+  Xfo bone2Xfo = bone1Xfo;
+  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+  Xfo midJointXfo = Xfo();
+
+  Scalar scaledBone0Len = bone0Len * rigScale;
+  Scalar scaledBone1Len = bone1Len * rigScale;
+
+  if(ikblend > 0.0) {
+    solve2BoneIK(
+      scaledBone0Len,
+      scaledBone1Len,
+      root.translation(),
+      upV.translation(),
+      ikHandle.translation(),
+      bone0Xfo,
+      bone1Xfo
+    );
+    bone0Xfo.ori = bone0FkXfo.ori.sphericalLinearInterpolate(bone0Xfo.ori, ikblend);
+    bone1Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
+    bone1Xfo.ori = bone1FkXfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, ikblend);
+  }
+
+  // project bone2 to the end of bone 1
+  bone2Xfo = bone1Xfo;
+  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+
+  // Set Mid Joint Xfo
+  midJointXfo.tr = bone1Xfo.tr;
+  midJointXfo.ori = bone0Xfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, 0.5);
+
+  // Set scaling
+  Vec3 outScaling = Vec3(rigScale, rigScale, rigScale);
+  bone0Xfo.sc = outScaling;
+  bone1Xfo.sc = outScaling;
+  bone2Xfo.sc = outScaling;
+  midJointXfo.sc = outScaling;
+
+  bone0Out = bone0Xfo.toMat44();
+  bone1Out = bone1Xfo.toMat44();
+  bone2Out = bone2Xfo.toMat44();
+  midJointOut = midJointXfo.toMat44();
+
+  // Set debugging visibility.
+  this.setDebug(drawDebug);
+  if(this.drawDebug){
+    if(!this.handle)
+      this.handle = DrawingHandle();
+    Color boneColor(1.0, 1.0, 0);
+    etDrawBone(this.handle.rootTransform, 'bone0', bone0Xfo, scaledBone0Len, scaledBone0Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'bone1', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'midJoint', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+  }
+}
+
+// =========== TwoBoneDoubleMidJointIK Guide Solver ================ //
+object TwoBoneDoubleMidJointIKGuideSolver : TwoBoneIKGuideSolver  {
+  Xfo initPose[];
+};
+
+// Default Constructor
+/// \dfgPresetTitle TwoBoneDoubleMidJointIKGuideSolver_Constructor
+/// \dfgPresetColor Color(49, 60, 61)
+/// \dfgPresetHeaderColor Color(42, 94, 102)
+/// \dfgPresetTextColor Color(168, 229, 240)
+/// \dfgPresetFolder Solvers\TwoBoneDoubleMidJointIKSolver\Guide
+function TwoBoneDoubleMidJointIKGuideSolver()
+{
+
+}
+
+
+// Return Arguments for Kraken
+/// \dfgPresetOmit
+function KrakenSolverArg[] TwoBoneDoubleMidJointIKGuideSolver.getArguments(){
+  KrakenSolverArg args[] = this.parent.parent.getArguments();
+
+  args.push(KrakenSolverArg('root', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('mid1', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('mid2', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('end', 'In', 'Mat44'));
+
+  args.push(KrakenSolverArg('guideOpHost', 'Out', 'Mat44'));
+  return args;
+}
+
+/// \dfgPresetTitle TwoBoneDoubleMidJointIKGuideSolver_Solve
+/// \dfgPresetColor Color(49, 60, 61)
+/// \dfgPresetHeaderColor Color(42, 94, 102)
+/// \dfgPresetTextColor Color(168, 229, 240)
+/// \dfgPresetFolder Solvers\TwoBoneDoubleMidJointIKSolver\Guide
+function TwoBoneDoubleMidJointIKGuideSolver.solve!(
+  Boolean drawDebug,
+  Scalar rigScale,
+
+  Mat44 root,
+  Mat44 mid1,
+  Mat44 mid2,
+  Mat44 end,
+  io Mat44 guideOpHost
+) {
+
+  Vec3 debugPositions1[];
+  Vec3 debugPositions2[];
+  debugPositions1.resize(4);
+  debugPositions2.resize(3);
+
+  Vec3 p1Start;
+  Vec3 p1End;
+  Vec3 p2Start;
+  Vec3 p2End;
+
+  p1Start = (root.inverse() * root).translation();
+  p2Start = (root.inverse() * end).translation();
+  p1End   = (root.inverse() * mid1).translation();
+  p2End   = (root.inverse() * mid2).translation();
+
+  Vec3 midPosition = calculateIntersectionFrom4Points(p1Start, p2Start, p1End, p2End);
+
+  midPosition = (midPosition * root).tr;
+
+  debugPositions1[0] = root.translation();
+  debugPositions1[1] = mid1.translation();
+  debugPositions1[2] = mid2.translation();
+  debugPositions1[3] = end.translation();
+
+  debugPositions2[0] = root.translation();
+  debugPositions2[1] = midPosition;
+  debugPositions2[2] = end.translation();
+
+  guideOpHost = Mat44();
+
+  // Set debugging visibility.
+  this.setDebug(drawDebug);
+
+  if(this.drawDebug){
+
+    if(!this.handle){
+      this.handle = DrawingHandle();
+    }
+
+    Color lineColor(1.0, 1.0, 0);
+    drawLineStrip(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideLines1', debugPositions1, lineColor);
+    lineColor = Color(1.0, 0.0, 0);
+    drawLineStrip(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideLines2', debugPositions2, lineColor);
+    drawCircle(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideCircle', Xfo(midPosition), 1.0, lineColor);
+    
+    lineColor = Color(0.1, 0.1, 0.1);
+    drawCircle(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideCircle1', Xfo(p1Start), 0.3, lineColor);
+    lineColor = Color(0.2, 0.2, 0.0);
+    drawCircle(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideCircle2', Xfo(p2Start), 0.3, lineColor);
+    lineColor = Color(0.4, 0.4, 0.0);
+    drawCircle(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideCircle3', Xfo(p1End), 0.3, lineColor);
+    lineColor = Color(0.7, 0.0, 0.0);
+    drawCircle(this.handle.rootTransform, 'TwoBoneDoubleMidJointIKGuideCircle4', Xfo(p2End), 0.3, lineColor);
+  }
+}
+
+
+inline function Vec3 calculateIntersectionFrom4Points(Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4){
+
+  Scalar x, y, y1, y2, z, s1, s2;
+  Vec3 mid = (p1 + p2) / 2.0f;
+  Vec3 mid1 = p3 - mid;
+  Vec3 mid2 = p4 - mid;
+  report( "<<<<" );
+  report( p1 );
+  report( p2 );
+  report( p3 );
+  report( p4 );
+
+  report( "mid" );
+  report( mid  );
+  report( mid1 );
+  report( mid2 );
+
+  Boolean isXInvalid = false;
+  Boolean isY1Invalid = false;
+  Boolean isY2Invalid = false;
+  Boolean isZInvalid = false;
+
+  // detect normal dir is in same
+  if (( mid1.x >= 0 ) && ( mid2.x >= 0 )){
+    // report( "x goood" );
+  } else if (( mid1.x < 0 ) && ( mid2.x < 0 )){
+    // report( "x goood" );
+  } else {
+    isXInvalid = true;
+  }
+
+  if (( mid1.z >= 0 ) && ( mid2.z >= 0 )){
+    // report( "z goood" );
+  } else if (( mid1.z < 0 ) && ( mid2.z < 0 )){
+    // report( "z goood" );
+  } else {
+    isZInvalid = true;
+  }
+
+  // x-y plane cross
+  s1 = ((p4.x - p2.x) * (p1.y - p2.y) - (p4.y - p2.y) * (p1.x - p2.x)) * 0.5;
+  s2 = ((p4.x - p2.x) * (p2.y - p3.y) - (p4.y - p2.y) * (p2.x - p3.x)) * 0.5;
+  x  = p1.x + (p3.x - p1.x) * (s1 / (s1 + s2));
+  y1 = p1.y + (p3.y - p1.y) * (s1 / (s1 + s2));
+
+  if (x.isNaN() || isXInvalid){
+    // x = (p1.x + p2.x + p3.x + p4.x) / 4.0f;
+    x = (p3.x + p4.x) / 2.0f;
+  }
+  if (y1.isNaN() || isXInvalid){
+    // y1 = (p1.y + p2.y + p3.y + p4.y) / 4.0f;
+    y1 = (p3.y + p4.y) / 2.0f;
+  }
+
+  // z-y plane cross
+  s1 = ((p4.z - p2.z) * (p1.y - p2.y) - (p4.y - p2.y) * (p1.z - p2.z)) * 0.5;
+  s2 = ((p4.z - p2.z) * (p2.y - p3.y) - (p4.y - p2.y) * (p2.z - p3.z)) * 0.5;
+  z  = p1.z + (p3.z - p1.z) * (s1 / (s1 + s2));
+  y2 = p1.y + (p3.y - p1.y) * (s1 / (s1 + s2));
+
+  if (y2.isNaN() || isZInvalid){
+    y2 = (p3.z + p4.z) / 2.0f;
+  }
+  if (z.isNaN() || isZInvalid){
+    // z = (p1.z + p2.z + p3.z + p4.z) / 4.0f;
+    z = (p3.z + p4.z) / 2.0f;
+  }
+
+  if (y1 < p2.y || p1.y < y1){
+    isY1Invalid = true;
+  }
+  if (y2 < p2.y || p1.y < y2){
+    isY2Invalid = true;
+  }
+
+  if (isY1Invalid && isY2Invalid) {
+    report( "case 1" );
+    y = (p3.y + p4.y) / 2.0f;
+  } else if( isY1Invalid ){
+    report( "case 2" );
+    y = y2;
+  } else if( isY2Invalid ){
+    report( "case 3" );
+    y = y1;
+  } else {
+    y = (y1 + y2) / 2.0f;
+  }
+
+  report( "y" );
+  report( y );
+  report( y1);
+  report( y2);
+
+
+
+  return Vec3(x, y, z);
+}

@@ -2,12 +2,16 @@
   "version": "0.1.0",
   "code": [
     "GSW_BezierSpineSolver.kl",
+
     "GSW_NeckHeadGuideSolver.kl",
     "GSW_NeckHeadSolverStep1.kl",
     "GSW_NeckHeadSolverStep2.kl",
     "GSW_NeckHeadSolverStep3.kl",
+
     "GSW_ShoulderArmSolverStep1.kl",
     "GSW_ShoulderArmSolverStep2.kl",
-    "GSW_ShoulderArmSolverStep3.kl"
+    "GSW_ShoulderArmSolverStep3.kl",
+
+    "GSW_TwoBoneDoubleJointIKSolver.kl",
   ]
 }
