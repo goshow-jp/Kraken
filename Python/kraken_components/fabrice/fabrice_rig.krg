@@ -222,7 +222,7 @@
     }, 
     {
       "source": "clavicle:L.clavicle", 
-      "target": "arm:L.clavicleEnd", 
+      "target": "arm:L.root", 
       "targetIndex": 0
     }, 
     {
@@ -257,7 +257,7 @@
     }, 
     {
       "source": "clavicle:R.clavicle", 
-      "target": "arm:R.clavicleEnd", 
+      "target": "arm:R.root", 
       "targetIndex": 0
     }, 
     {
@@ -266,7 +266,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:L.hand", 
+      "source": "arm:L.wrist", 
       "target": "finger01:L.rootInput", 
       "targetIndex": 0
     }, 
@@ -276,7 +276,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:L.hand", 
+      "source": "arm:L.wrist", 
       "target": "finger02:L.rootInput", 
       "targetIndex": 0
     }, 
@@ -286,7 +286,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:L.hand", 
+      "source": "arm:L.wrist", 
       "target": "finger03:L.rootInput", 
       "targetIndex": 0
     }, 
@@ -296,7 +296,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:L.hand", 
+      "source": "arm:L.wrist", 
       "target": "thumb:L.rootInput", 
       "targetIndex": 0
     }, 
@@ -306,7 +306,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:R.hand", 
+      "source": "arm:R.wrist", 
       "target": "finger02:R.rootInput", 
       "targetIndex": 0
     }, 
@@ -316,7 +316,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:R.hand", 
+      "source": "arm:R.wrist", 
       "target": "finger01:R.rootInput", 
       "targetIndex": 0
     }, 
@@ -326,7 +326,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:R.hand", 
+      "source": "arm:R.wrist", 
       "target": "thumb:R.rootInput", 
       "targetIndex": 0
     }, 
@@ -336,7 +336,7 @@
       "targetIndex": 0
     }, 
     {
-      "source": "arm:R.hand", 
+      "source": "arm:R.wrist", 
       "target": "finger03:R.rootInput", 
       "targetIndex": 0
     }, 
@@ -574,7 +574,7 @@
       "mainSrtSize": 5.0, 
       "name": "mainSrt", 
       "location": "M", 
-      "class": "kraken_examples.mainSrt_component.MainSrtComponentGuide"
+      "class": "kraken_components.generic.mainSrt_component.MainSrtComponentGuide"
     }, 
     {
       "headXfo": {
@@ -796,7 +796,7 @@
           "closed": false
         }
       ], 
-      "class": "kraken_examples.fabrice.fabrice_head.FabriceHeadGuide"
+      "class": "kraken_components.fabrice.fabrice_head.FabriceHeadGuide"
     }, 
     {
       "spineEndHandleCtrlCrvData": [
@@ -881,7 +881,7 @@
         "__mathObjectClass__": "Vec3", 
         "z": 0.75
       }, 
-      "class": "kraken_examples.fabrice.fabrice_spine.FabriceSpineGuide", 
+      "class": "kraken_components.fabrice.fabrice_spine.FabriceSpineGuide", 
       "numDeformers": 6, 
       "cogCtrlCrvData": [
         {
@@ -1319,7 +1319,7 @@
         }
       ], 
       "location": "M", 
-      "class": "kraken_examples.fabrice.fabrice_tail.FabriceTailGuide", 
+      "class": "kraken_components.fabrice.fabrice_tail.FabriceTailGuide", 
       "tailBasePos": {
         "y": 0.6499999761581421, 
         "x": 0.0, 
@@ -1374,7 +1374,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1417,7 +1417,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1460,7 +1460,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1503,7 +1503,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1546,7 +1546,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1589,7 +1589,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1632,7 +1632,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1675,7 +1675,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1766,7 +1766,7 @@
       ], 
       "location": "R", 
       "numJoints": 12, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1857,7 +1857,7 @@
       ], 
       "location": "L", 
       "numJoints": 12, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1912,7 +1912,7 @@
       ], 
       "location": "L", 
       "numJoints": 6, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -1967,7 +1967,7 @@
       ], 
       "location": "R", 
       "numJoints": 6, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2010,7 +2010,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2053,7 +2053,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2096,7 +2096,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2139,7 +2139,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2182,7 +2182,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2225,7 +2225,7 @@
       ], 
       "location": "L", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2268,7 +2268,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2311,7 +2311,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2354,7 +2354,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "graphPos": {
@@ -2397,7 +2397,7 @@
       ], 
       "location": "R", 
       "numJoints": 4, 
-      "class": "kraken_examples.tentacle_component.TentacleComponentGuide"
+      "class": "kraken_components.generic.tentacle_component.TentacleComponentGuide"
     }, 
     {
       "forearmFKCtrlSize": 0.5, 
@@ -2508,7 +2508,7 @@
           }
         }
       }, 
-      "class": "kraken_examples.arm_component.ArmComponentGuide", 
+      "class": "kraken_components.biped.arm_component.ArmComponentGuide", 
       "bicepFKCtrlSize": 0.7
     }, 
     {
@@ -2662,7 +2662,7 @@
         }
       ], 
       "location": "L", 
-      "class": "kraken_examples.fabrice.fabrice_clavicle.FabriceClavicleGuide"
+      "class": "kraken_components.fabrice.fabrice_clavicle.FabriceClavicleGuide"
     }, 
     {
       "graphPos": {
@@ -2815,7 +2815,7 @@
         }
       ], 
       "location": "R", 
-      "class": "kraken_examples.fabrice.fabrice_clavicle.FabriceClavicleGuide"
+      "class": "kraken_components.fabrice.fabrice_clavicle.FabriceClavicleGuide"
     }, 
     {
       "forearmFKCtrlSize": 0.5, 
@@ -2926,7 +2926,7 @@
           }
         }
       }, 
-      "class": "kraken_examples.arm_component.ArmComponentGuide", 
+      "class": "kraken_components.biped.arm_component.ArmComponentGuide", 
       "bicepFKCtrlSize": 0.7
     }, 
     {
@@ -2964,7 +2964,7 @@
       ], 
       "location": "L", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3001,7 +3001,7 @@
       ], 
       "location": "L", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3038,7 +3038,7 @@
       ], 
       "location": "L", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3075,7 +3075,7 @@
       ], 
       "location": "L", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3112,7 +3112,7 @@
       ], 
       "location": "R", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3149,7 +3149,7 @@
       ], 
       "location": "R", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3186,7 +3186,7 @@
       ], 
       "location": "R", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }, 
     {
       "graphPos": {
@@ -3223,7 +3223,7 @@
       ], 
       "location": "R", 
       "numJoints": 3, 
-      "class": "kraken_examples.fkChain_component.FKChainComponentGuide"
+      "class": "kraken_components.generic.fkChain_component.FKChainComponentGuide"
     }
   ]
 }
