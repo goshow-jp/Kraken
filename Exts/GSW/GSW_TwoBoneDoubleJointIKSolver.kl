@@ -4,6 +4,9 @@ require Kraken;
 
 object TwoBoneDoubleMidJointIKSolver : KrakenSolver {
   Xfo initPose[];
+
+  private Xfo midJoint0TransformXfo;
+  private Xfo midJoint2TransformXfo;
 };
 
 /// Default Constructor
@@ -49,14 +52,21 @@ function KrakenSolverArg[] TwoBoneDoubleMidJointIKSolver.getArguments(){
   args.push(KrakenSolverArg('root', 'In', 'Mat44'));
   args.push(KrakenSolverArg('bone0FK', 'In', 'Mat44'));
   args.push(KrakenSolverArg('bone1FK', 'In', 'Mat44'));
+  args.push(KrakenSolverArg('bone2FK', 'In', 'Mat44'));
   args.push(KrakenSolverArg('ikHandle', 'In', 'Mat44'));
   args.push(KrakenSolverArg('upV', 'In', 'Mat44'));
 
   args.push(KrakenSolverArg('bone0Len', 'In', 'Scalar'));
   args.push(KrakenSolverArg('bone1Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('midJoint0Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('midJoint1Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('midJoint2Len', 'In', 'Scalar'));
+  args.push(KrakenSolverArg('midJointRate', 'In', 'Scalar'));
   args.push(KrakenSolverArg('bone0Out', 'Out', 'Mat44'));
   args.push(KrakenSolverArg('bone1Out', 'Out', 'Mat44'));
   args.push(KrakenSolverArg('bone2Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('midJoint0Out', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('midJoint1Out', 'Out', 'Mat44'));
   args.push(KrakenSolverArg('midJointOut', 'Out', 'Mat44'));
   return args;
 }
@@ -81,26 +91,59 @@ function TwoBoneDoubleMidJointIKSolver.solve!
   Mat44 root,
   Mat44 bone0FK,
   Mat44 bone1FK,
+  Mat44 bone2FK,
   Mat44 ikHandle,
   Mat44 upV,
 
   Scalar bone0Len,
   Scalar bone1Len,
+  Scalar midJoint0Len,
+  Scalar midJoint1Len,
+  Scalar midJoint2Len,
+  Scalar midJointRate,
+
   io Mat44 bone0Out,
   io Mat44 bone1Out,
   io Mat44 bone2Out,
+  io Mat44 midJoint0Out,
+  io Mat44 midJoint1Out,
   io Mat44 midJointOut
 ) {
+
   Xfo bone0FkXfo = Xfo(bone0FK);
   Xfo bone1FkXfo = Xfo(bone1FK);
+  Xfo bone2FkXfo = Xfo(bone2FK);
   Xfo bone0Xfo = bone0FkXfo;
   Xfo bone1Xfo = bone1FkXfo;
-  Xfo bone2Xfo = bone1Xfo;
-  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
-  Xfo midJointXfo = Xfo();
+  Xfo bone2Xfo = bone2FkXfo;
+  Xfo bone3Xfo = bone2Xfo;
+  bone3Xfo.tr = bone2Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+  Xfo midJointXfo = bone3Xfo;
+
+  if (this.midJoint0TransformXfo == Xfo() ){
+    this.midJoint0TransformXfo = Xfo();
+    this.midJoint0TransformXfo.tr = Vec3(midJoint0Len, 0.0, 0.0); 
+  }
+
+  if (this.midJoint2TransformXfo == Xfo() ){
+    this.midJoint2TransformXfo = Xfo();
+    this.midJoint2TransformXfo.tr = Vec3( (midJoint2Len * -1.0), 0.0, 0.0); 
+  }
+
+  
+  if(this.initPose.size() == 0) {
+    midJointXfo = (bone3Xfo * this.midJoint2TransformXfo).toMat44();
+    this.initPose.resize(4);
+    this.initPose[0] = bone0FkXfo;
+    this.initPose[1] = bone1FkXfo;
+    this.initPose[2] = midJointXfo;
+    this.initPose[3] = bone3Xfo;
+  }
 
   Scalar scaledBone0Len = bone0Len * rigScale;
   Scalar scaledBone1Len = bone1Len * rigScale;
+  Xfo ikPose[];
+  ikPose.resize( 4 );
 
   if(ikblend > 0.0) {
     solve2BoneIK(
@@ -110,32 +153,73 @@ function TwoBoneDoubleMidJointIKSolver.solve!
       upV.translation(),
       ikHandle.translation(),
       bone0Xfo,
-      bone1Xfo
+      bone2Xfo
     );
     bone0Xfo.ori = bone0FkXfo.ori.sphericalLinearInterpolate(bone0Xfo.ori, ikblend);
-    bone1Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
-    bone1Xfo.ori = bone1FkXfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, ikblend);
+    bone2Xfo.tr = bone0Xfo.transformVector(Vec3(bone0Len, 0.0, 0.0));
+    bone2Xfo.ori = bone1FkXfo.ori.sphericalLinearInterpolate(bone2Xfo.ori, ikblend);
+
+    // ------------------------------------------
+    UInt32 ikIndex = 0;
+    Xfo initPose[];
+    initPose.resize(4);
+    // Calculate the initpose offset by the chain base input
+    for (Integer i=0; i < 4; i++) {
+      initPose[i] = root * (this.initPose[0].inverse() * this.initPose[i]);
+    }
+
+    ikPose = solveNBoneIKWithUpVector(
+      initPose, ikHandle.translation(), upV.translation(), Vec3(0, 1, 0), rigScale);
+
+    // Now blend the IK result with the FK result
+    /*
+    for(UInt32 i=ikIndex; i < xfoPose.size(); i++) {
+
+      xfoPose[i].ori = xfoPose[i].ori.sphericalLinearInterpolate(ikPose[i- ikIndex].ori, ikblend);
+
+      if( i > 0 ){
+        xfoPose[i].tr = xfoPose[i-1].transformVector(boneVectors[i-1]);
+      }
+    }
+    */
+
   }
 
   // project bone2 to the end of bone 1
-  bone2Xfo = bone1Xfo;
-  bone2Xfo.tr = bone1Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
+  bone3Xfo = bone2Xfo;
+  bone3Xfo.tr = bone2Xfo.transformVector(Vec3(bone1Len, 0.0, 0.0));
 
   // Set Mid Joint Xfo
-  midJointXfo.tr = bone1Xfo.tr;
-  midJointXfo.ori = bone0Xfo.ori.sphericalLinearInterpolate(bone1Xfo.ori, 0.5);
+  midJointXfo.tr = bone2Xfo.tr;
+  midJointXfo.ori = bone0Xfo.ori.sphericalLinearInterpolate(bone2Xfo.ori, 0.5);
 
   // Set scaling
   Vec3 outScaling = Vec3(rigScale, rigScale, rigScale);
   bone0Xfo.sc = outScaling;
   bone1Xfo.sc = outScaling;
   bone2Xfo.sc = outScaling;
+  bone3Xfo.sc = outScaling;
   midJointXfo.sc = outScaling;
 
   bone0Out = bone0Xfo.toMat44();
-  bone1Out = bone1Xfo.toMat44();
-  bone2Out = bone2Xfo.toMat44();
+  bone1Out = bone2Xfo.toMat44();
+  bone2Out = bone3Xfo.toMat44();
+
   midJointOut = midJointXfo.toMat44();
+  midJoint0Out = (bone0Xfo * this.midJoint0TransformXfo).toMat44();
+  midJoint1Out = (bone3Xfo * this.midJoint2TransformXfo).toMat44();
+
+  Scalar sub = (midJoint1Out.translation() - midJoint0Out.translation()).length();
+  Scalar sub2 = sub - midJoint1Len;
+  // report( sub2 * midJointRate );
+  // report( sub2 * (1.0 - midJointRate) );
+
+  bone0Out = ikPose[0].toMat44();
+  bone1Out = ikPose[1].toMat44();
+  bone2Out = ikPose[2].toMat44();
+
+  midJoint0Out = ikPose[1].toMat44();
+  midJoint1Out = ikPose[2].toMat44();
 
   // Set debugging visibility.
   this.setDebug(drawDebug);
@@ -143,9 +227,21 @@ function TwoBoneDoubleMidJointIKSolver.solve!
     if(!this.handle)
       this.handle = DrawingHandle();
     Color boneColor(1.0, 1.0, 0);
-    etDrawBone(this.handle.rootTransform, 'bone0', bone0Xfo, scaledBone0Len, scaledBone0Len * 0.15, boneColor);
-    etDrawBone(this.handle.rootTransform, 'bone1', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
-    etDrawBone(this.handle.rootTransform, 'midJoint', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.15, boneColor);
+    etDrawBone(this.handle.rootTransform, 'bone0', bone0Xfo, scaledBone0Len, scaledBone0Len * 0.05, boneColor);
+    etDrawBone(this.handle.rootTransform, 'bone1', bone1Xfo, scaledBone1Len, scaledBone1Len * 0.05, boneColor);
+    etDrawBone(this.handle.rootTransform, 'midJoint', bone1Xfo, midJoint1Len, midJoint1Len * 0.05, boneColor);
+
+    Color lineColor = Color(0.7, 0.0, 0.0);
+    drawCircle(this.handle.rootTransform, 'initPose0', this.initPose[0], 0.3, lineColor);
+    drawCircle(this.handle.rootTransform, 'initPose1', this.initPose[1], 0.3, lineColor);
+    drawCircle(this.handle.rootTransform, 'initPose2', this.initPose[2], 0.3, lineColor);
+    drawCircle(this.handle.rootTransform, 'initPose3', this.initPose[3], 0.3, lineColor);
+
+    lineColor = Color(0.0, 0.0, 0.7);
+    drawCircle(this.handle.rootTransform, 'ikPose0', ikPose[0], 0.3, lineColor);
+    drawCircle(this.handle.rootTransform, 'ikPose1', ikPose[1], 0.3, lineColor);
+    drawCircle(this.handle.rootTransform, 'ikPose2', ikPose[2], 0.3, lineColor);
+    drawCircle(this.handle.rootTransform, 'ikPose3', ikPose[3], 0.3, lineColor);
   }
 }
 
@@ -177,6 +273,7 @@ function KrakenSolverArg[] TwoBoneDoubleMidJointIKGuideSolver.getArguments(){
   args.push(KrakenSolverArg('end', 'In', 'Mat44'));
 
   args.push(KrakenSolverArg('guideOpHost', 'Out', 'Mat44'));
+  args.push(KrakenSolverArg('mid', 'Out', 'Mat44'));
   return args;
 }
 
@@ -193,7 +290,8 @@ function TwoBoneDoubleMidJointIKGuideSolver.solve!(
   Mat44 mid1,
   Mat44 mid2,
   Mat44 end,
-  io Mat44 guideOpHost
+  io Mat44 guideOpHost,
+  io Mat44 mid
 ) {
 
   Vec3 debugPositions1[];
@@ -214,6 +312,8 @@ function TwoBoneDoubleMidJointIKGuideSolver.solve!(
   Vec3 midPosition = calculateIntersectionFrom4Points(p1Start, p2Start, p1End, p2End);
 
   midPosition = root * midPosition;
+  mid = Mat44();
+  mid.setTranslation( midPosition );
 
   debugPositions1[0] = root.translation();
   debugPositions1[1] = mid1.translation();
@@ -337,8 +437,13 @@ inline function Vec3 calculateIntersectionFrom4Points(Vec3 p1, Vec3 p2, Vec3 p3,
   } else if( isY2Invalid ){
     report( "case 3" );
     y = y1;
+  } else if( y2 == 0.0f ){
+    y = y1;
+  } else if( y1 == 0.0f ){
+    y = y2;
   } else {
     y = (y1 + y2) / 2.0f;
+    y = y2;
   }
 
   report( "y" );

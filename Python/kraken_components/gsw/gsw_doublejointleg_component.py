@@ -82,6 +82,7 @@ class GswDoubleMidJointLegComponentGuide(GswDoubleMidJointLegComponent):
         self.armGuideDebugAttr = BoolAttribute('drawDebug', value=True, parent=armGuideSettingsAttrGrp)
 
         self.guideOpHost = Transform('guideOpHost', self.ctrlCmpGrp)
+        self.midCtrl = Control('mid', parent=self.ctrlCmpGrp, shape="sphere")
 
         # Guide Operator
         self.legGuideKLOp = KLOperator(name + 'GuideKLOp', 'TwoBoneDoubleMidJointIKGuideSolver', 'GSW_Kraken')
@@ -99,6 +100,7 @@ class GswDoubleMidJointLegComponentGuide(GswDoubleMidJointLegComponent):
 
         # Add Target Outputs
         self.legGuideKLOp.setOutput('guideOpHost', self.guideOpHost)
+        self.legGuideKLOp.setOutput('mid', self.midCtrl)
 
 
         self.default_data = {
@@ -178,7 +180,8 @@ class GswDoubleMidJointLegComponentGuide(GswDoubleMidJointLegComponent):
         knee2Position = self.knee2Ctrl.xfo.tr
         anklePosition = self.ankleCtrl.xfo.tr
 
-        kneePosition = (knee1Position + knee2Position).divideScalar(2.0)
+        # kneePosition = (knee1Position + knee2Position).divideScalar(2.0)
+        kneePosition = self.midCtrl.xfo.tr
 
         # Calculate Bicep Xfo
         rootToWrist = anklePosition.subtract(femurPosition).unit()
@@ -206,6 +209,10 @@ class GswDoubleMidJointLegComponentGuide(GswDoubleMidJointLegComponent):
         knee1Xfo.setFromVectors(tmp1, bone2Normal, bone2ZAxis, knee1Position)
         knee2Xfo.setFromVectors(tmp2, bone2Normal, bone2ZAxis, knee2Position)
 
+        midJoint0Len = femurPosition.subtract(knee1Position).length()
+        midJoint1Len = knee1Position.subtract(knee2Position).length()
+        midJoint2Len = knee2Position.subtract(anklePosition).length()
+
         femurLen = femurPosition.subtract(kneePosition).length()
         shinLen = kneePosition.subtract(anklePosition).length()
 
@@ -224,6 +231,13 @@ class GswDoubleMidJointLegComponentGuide(GswDoubleMidJointLegComponent):
         data['upVXfo'] = upVXfo
         data['femurLen'] = femurLen
         data['shinLen'] = shinLen
+        data['midJoint0Len'] = midJoint0Len
+        data['midJoint1Len'] = midJoint1Len
+        data['midJoint2Len'] = midJoint2Len
+        data['midJointRate'] = (
+            kneePosition.subtract(knee1Position).length()
+            / kneePosition.subtract(knee2Position).length()
+        )
 
         return data
 
@@ -275,6 +289,11 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
         self.shinFKCtrl = Control('shinFK', parent=self.shinFKCtrlSpace, shape="cube")
         self.shinFKCtrl.alignOnXAxis()
 
+        # Mid joint
+        self.midJointFKCtrlSpace = CtrlSpace('midJointFK', parent=self.femurFKCtrl)
+        self.midJointFKCtrl = Control('midJointFK', parent=self.midJointFKCtrlSpace, shape="cube")
+        self.midJointFKCtrl.alignOnXAxis()
+
         # IK Handle
         self.legIKCtrlSpace = CtrlSpace('IK', parent=self.ctrlCmpGrp)
         self.legIKCtrl = Control('IK', parent=self.legIKCtrlSpace, shape="pin")
@@ -285,6 +304,10 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
         self.legRightSideInputAttr = BoolAttribute('rightSide', value=False, parent=legSettingsAttrGrp)
         self.legBone0LenInputAttr = ScalarAttribute('bone0Len', value=1.0, parent=legSettingsAttrGrp)
         self.legBone1LenInputAttr = ScalarAttribute('bone1Len', value=1.0, parent=legSettingsAttrGrp)
+        self.legMidBone0LenInputAttr = ScalarAttribute('midJoint0Len', value=1.0, parent=legSettingsAttrGrp)
+        self.legMidBone1LenInputAttr = ScalarAttribute('midJoint1Len', value=1.0, parent=legSettingsAttrGrp)
+        self.legMidBone2LenInputAttr = ScalarAttribute('midJoint2Len', value=1.0, parent=legSettingsAttrGrp)
+        self.legMidBoneRateInputAttr = ScalarAttribute('midJointRate', value=0.5, parent=legSettingsAttrGrp)
         legIKBlendInputAttr = ScalarAttribute('ikblend', value=1.0, minValue=0.0, maxValue=1.0, parent=legSettingsAttrGrp)
 
         # Util Objects
@@ -315,6 +338,12 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
 
         kneeDef = Joint('knee', parent=self.defCmpGrp)
         kneeDef.setComponent(self)
+
+        midJoint0Def = Joint('midJoint0', parent=self.defCmpGrp)
+        midJoint0Def.setComponent(self)
+
+        midJoint1Def = Joint('midJoint1', parent=self.defCmpGrp)
+        midJoint1Def.setComponent(self)
 
         shinDef = Joint('shin', parent=self.defCmpGrp)
         shinDef.setComponent(self)
@@ -368,13 +397,20 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
 
         self.legIKKLOp.setInput('bone0Len', self.legBone0LenInputAttr)
         self.legIKKLOp.setInput('bone1Len', self.legBone1LenInputAttr)
+
+        self.legIKKLOp.setInput('midJoint0Len', self.legMidBone0LenInputAttr)
+        self.legIKKLOp.setInput('midJoint1Len', self.legMidBone1LenInputAttr)
+        self.legIKKLOp.setInput('midJoint2Len', self.legMidBone2LenInputAttr)
+        self.legIKKLOp.setInput('midJointRate', self.legMidBoneRateInputAttr)
+
         self.legIKKLOp.setInput('ikblend', legIKBlendInputAttr)
         self.legIKKLOp.setInput('rightSide', self.legRightSideInputAttr)
 
         # Add Xfo Inputs
         self.legIKKLOp.setInput('root', self.ikRootPosition)
         self.legIKKLOp.setInput('bone0FK', self.femurFKCtrl)
-        self.legIKKLOp.setInput('bone1FK', self.shinFKCtrl)
+        self.legIKKLOp.setInput('bone1FK', self.midJointFKCtrl)
+        self.legIKKLOp.setInput('bone2FK', self.shinFKCtrl)
         self.legIKKLOp.setInput('ikHandle', self.legIKTargetInputTgt)
         self.legIKKLOp.setInput('upV', self.legUpVCtrl)
 
@@ -382,8 +418,9 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
         self.legIKKLOp.setOutput('bone0Out', self.femurOutputTgt)
         self.legIKKLOp.setOutput('bone1Out', self.shinOutputTgt)
         self.legIKKLOp.setOutput('bone2Out', self.legEndOutputTgt)
-        self.legIKKLOp.setOutput('midJointOut', self.knee1OutputTgt)
-        self.legIKKLOp.setOutput('midJointOut', self.knee2OutputTgt)
+        self.legIKKLOp.setOutput('midJoint0Out', self.knee1OutputTgt)
+        self.legIKKLOp.setOutput('midJoint1Out', self.knee2OutputTgt)
+        # self.legIKKLOp.setOutput('midJointOut', self.knee2OutputTgt)
 
 
         # Add Leg Deformer Splice Op
@@ -395,10 +432,14 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
         self.outputsToDeformersKLOp.setInput('rigScale', self.rigScaleInputAttr)
 
         # Add Xfo Inputs
-        self.outputsToDeformersKLOp.setInput('constrainers', [self.femurOutputTgt, self.knee1OutputTgt, self.shinOutputTgt])
+        self.outputsToDeformersKLOp.setInput(
+            'constrainers',
+            [self.femurOutputTgt, self.knee1OutputTgt, self.knee2OutputTgt, self.shinOutputTgt])
 
         # Add Xfo Outputs
-        self.outputsToDeformersKLOp.setOutput('constrainees', [femurDef, kneeDef, shinDef])
+        self.outputsToDeformersKLOp.setOutput(
+            'constrainees',
+            [femurDef, midJoint0Def, midJoint1Def, shinDef])
 
         Profiler.getInstance().pop()
 
@@ -425,6 +466,12 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
         upVXfo = data.get('upVXfo')
         femurLen = data.get('femurLen')
         shinLen = data.get('shinLen')
+        midJoint0Xfo = data.get('knee1Xfo')
+        midJoint1Xfo = data.get('knee2Xfo')
+        midJoint0Len = data.get('midJoint0Len')
+        midJoint1Len = data.get('midJoint1Len')
+        midJoint2Len = data.get('midJoint2Len')
+        midJointRate = data.get('midJointRate')
 
         self.femurFKCtrlSpace.xfo = femurXfo
         self.femurFKCtrl.xfo = femurXfo
@@ -436,6 +483,10 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
         self.shinFKCtrlSpace.xfo = kneeXfo
         self.shinFKCtrl.xfo = kneeXfo
         self.shinFKCtrl.scalePoints(Vec3(shinLen, 1.5, 1.5))
+
+        self.midJointFKCtrlSpace.xfo = kneeXfo
+        self.midJointFKCtrl.xfo = midJoint0Xfo
+        self.midJointFKCtrl.scalePoints(Vec3(midJoint0Len, 1.5, 1.5))
 
         self.legEndFKOutputTgt.xfo.tr = handleXfo.tr
         self.legEndFKOutputTgt.xfo.ori = kneeXfo.ori
@@ -467,6 +518,18 @@ class GswDoubleMidJointLegComponentRig(GswDoubleMidJointLegComponent):
 
         self.legPelvisInputTgt.xfo = femurXfo
         self.legIKTargetInputTgt.xfo = handleXfo
+
+        # mid
+
+        self.legMidBone0LenInputAttr.setMin(0.0)
+        self.legMidBone0LenInputAttr.setMax(midJoint0Len * 3.0)
+        self.legMidBone0LenInputAttr.setValue(midJoint0Len)
+        self.legMidBone1LenInputAttr.setMin(0.0)
+        self.legMidBone1LenInputAttr.setMax(midJoint1Len * 3.0)
+        self.legMidBone1LenInputAttr.setValue(midJoint1Len)
+        self.legMidBone2LenInputAttr.setMin(0.0)
+        self.legMidBone2LenInputAttr.setMax(midJoint2Len * 3.0)
+        self.legMidBone2LenInputAttr.setValue(midJoint2Len)
 
         # TODO: We need the Rig class to be modified to handle the ability to
         # query if the ports are connected during loadData. Currently just a
