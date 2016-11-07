@@ -131,7 +131,7 @@ class InsectLegComponentGuide(InsectLegComponent):
         super(InsectLegComponentGuide, self).loadData(data)
 
         for i in xrange(len(data['jointPositions'])):
-            self.jointCtrls[i].xfo = data['jointPositions'][i]
+            self.jointCtrls[i].xfo.tr = data['jointPositions'][i]
 
         return True
 
