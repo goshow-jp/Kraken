@@ -181,10 +181,10 @@ class FabriceClavicleRig(FabriceClavicle):
         # Deformers
         # ==========
         deformersLayer = self.getOrCreateLayer('deformers')
-        defCmpGrp = ComponentGroup(self.getName(), self, parent=deformersLayer)
+        self.defCmpGrp = ComponentGroup(self.getName(), self, parent=deformersLayer)
         self.addItem('defCmpGrp', self.defCmpGrp)
 
-        self.clavicleDef = Joint('clavicle', parent=defCmpGrp)
+        self.clavicleDef = Joint('clavicle', parent=self.defCmpGrp)
         self.clavicleDef.setComponent(self)
 
 
