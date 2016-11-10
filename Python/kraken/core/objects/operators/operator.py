@@ -4,7 +4,7 @@ Classes:
 Operator - Base operator object.
 
 """
-
+import re
 from kraken.core.configs.config import Config
 from kraken.core.objects.scene_item import SceneItem
 
@@ -12,8 +12,8 @@ from kraken.core.objects.scene_item import SceneItem
 class Operator(SceneItem):
     """Operator representation."""
 
-    def __init__(self, name, parent=None):
-        super(Operator, self).__init__(name, parent)
+    def __init__(self, name, parent=None, metaData=None):
+        super(Operator, self).__init__(name, parent, metaData=metaData)
 
         self.inputs = {}
         self.outputs = {}
@@ -57,6 +57,10 @@ class Operator(SceneItem):
                 objectType = eachType
                 break
 
+        altType = self.getMetaDataItem("altType")
+        if altType is not None and nameTemplate['types'].get(altType, None) is not None:
+            objectType = altType
+
         if objectType is None:
             objectType = 'default'
 
@@ -70,10 +74,17 @@ class Operator(SceneItem):
                     builtName += nameTemplate['separator']
 
             elif token is 'location':
-                location = self.getParent().getLocation()
+                parent = self.getParent()
+                if parent is None:
+                    raise ValueError("operator [%s] does not have a parent." % self.getName())
+                location = parent.getLocation()
 
                 if location not in nameTemplate['locations']:
                     raise ValueError("Invalid location on: " + self.getPath())
+
+                altLocation = self.getMetaDataItem("altLocation")
+                if altLocation is not None and altLocation in nameTemplate['locations']:
+                    location = altLocation
 
                 builtName += location
 
@@ -96,6 +107,19 @@ class Operator(SceneItem):
                     continue
 
                 builtName += self.getContainer().getName()
+
+            elif token is 'solverName':
+                if self.isTypeOf("KLOperator"):
+                    builtName += self.solverTypeName
+                else:
+                    builtName += self.canvasPresetPath.rpartition('.')[-1]
+
+            elif token is 'solverSource':
+                if self.isTypeOf("KLOperator"):
+                    builtName += self.extension
+                else:
+                    builtName += re.sub("[\W\d]", "", self.canvasPresetPath.rpartition('.')[0])
+
 
             else:
                 raise ValueError("Unresolvabled token '" + token +
