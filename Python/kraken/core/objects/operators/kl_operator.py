@@ -32,11 +32,11 @@ class KLOperator(Operator):
         ks.loadExtension('Kraken')
         if self.extension != 'Kraken':
             ks.loadExtension(self.extension)
-        self.solverRTVal = ks.constructRTVal(self.solverTypeName)
+        self.solverRTVal = ks.constructRTVal('%s::%s' % (self.extension, self.solverTypeName))
 
         # logger.debug("Creating kl operator object [%s] of type [%s] from extension [%s]:" % (self.getName(), self.solverTypeName, self.extension))
 
-        self.args = self.solverRTVal.getArguments('KrakenSolverArg[]')
+        self.args = self.solverRTVal.getArguments('Kraken::KrakenSolverArg[]')
 
         # Initialize the inputs and outputs based on the given args.
         for i in xrange(len(self.args)):
@@ -137,16 +137,13 @@ class KLOperator(Operator):
                 RTVal = ks.convertFromRTVal(self.solverRTVal.defaultValues[name], RTTypeName=RTValDataType)
 
             logger.debug("Using default value for %s.%s.%s(%s) --> %s" % (self.solverTypeName, self.getName(), mode, name, RTVal))
+
             return RTVal
 
-        else:
-            if True: #mode == "arg":  #Only report a warning if default value is not provided for arg
-                logger.warn("No default value for %s.%s.%s[%s]." % (self.solverTypeName, self.getName(), mode, name))
-
         defaultValue = ks.rtVal(RTValDataType)
-        if True: #mode == "arg":
+        if name in self.inputs:  # Only warn for input types, OK that we generate default outputs, I think.  Maybe even safer.
             logger.warn("    Creating default value by generating new RTVal object of type: %s. You should set default values for %s.%s(%s) in your KL Operator." %
-                (RTValDataType, self.solverTypeName, mode, name,))
+                (RTValDataType, self.solverTypeName, mode, name))
 
         return defaultValue
 
