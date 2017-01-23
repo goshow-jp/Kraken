@@ -1,6 +1,6 @@
 from kraken.core.maths import Vec3, Xfo
 from kraken.core.maths.rotation_order import RotationOrder
-from kraken.core.maths.euler import rotationOrderStrToIntMapping
+from kraken.core.maths.constants import ROT_ORDER_STR_TO_INT_MAP
 
 from kraken.core.objects.components.base_example_component import BaseExampleComponent
 from kraken.core.objects.attributes.attribute_group import AttributeGroup
@@ -179,7 +179,7 @@ class GswMainComponentRig(GswMainComponent):
         # Add Controls
         self.mainSrtCtrl = Control('global', parent=self.ctrlCmpGrp)
         self.mainSrtCtrl.setCurveData(icon.arrows_side3)
-        self.mainSrtCtrl.ro = RotationOrder(rotationOrderStrToIntMapping["ZXY"])  # Set with component settings later
+        self.mainSrtCtrl.ro = RotationOrder(ROT_ORDER_STR_TO_INT_MAP["ZXY"])  # Set with component settings later
         self.mainSrtCtrl.setColor("blueLightMuted")
         self.mainSrtCtrl.scalePoints(Vec3(3.5, 3.5, 3.5))
         self.mainSrtCtrl.lockScale(x=True, y=True, z=True)
@@ -187,7 +187,7 @@ class GswMainComponentRig(GswMainComponent):
 
         self.localCtrl = Control('local', parent=self.mainSrtCtrl)
         self.localCtrl.setCurveData(icon.arrows_side3)
-        self.localCtrl.ro = RotationOrder(rotationOrderStrToIntMapping["ZXY"])  # Set with component settings later
+        self.localCtrl.ro = RotationOrder(ROT_ORDER_STR_TO_INT_MAP["ZXY"])  # Set with component settings later
         self.localCtrl.setColor("blueDark")
         self.localCtrl.scalePoints(Vec3(2.5, 2.5, 2.5))
         self.localCtrl.lockScale(x=True, y=True, z=True)
@@ -196,7 +196,7 @@ class GswMainComponentRig(GswMainComponent):
         # COG
         self.cogCtrl = Control('cog', parent=self.localCtrl)
         self.cogCtrl.setCurveData(icon.home_plate)
-        self.cogCtrl.ro = RotationOrder(rotationOrderStrToIntMapping["ZXY"])  # Set with component settings later
+        self.cogCtrl.ro = RotationOrder(ROT_ORDER_STR_TO_INT_MAP["ZXY"])  # Set with component settings later
         self.cogCtrl.scalePoints(Vec3(8.0, 8.0, 5.5))
         self.cogCtrl.setColor("orange")
         self.cogCtrlSpace = self.cogCtrl.insertCtrlSpace()
