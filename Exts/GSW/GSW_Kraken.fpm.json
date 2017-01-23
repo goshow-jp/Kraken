@@ -13,5 +13,6 @@
     "GSW_ShoulderArmSolverStep3.kl",
 
     "GSW_TwoBoneDoubleJointIKSolver.kl",
-  ]
+  ],
+  "autoNamespace": true
 }
